@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -124,19 +125,26 @@ func generateDefaultSidebarConfigForRole(userRole int) string {
 		"personal": true,
 	}
 
+	// 代理区域 - 代理及以上角色
+	if userRole >= common.RoleAgentUser {
+		defaultConfig["agent"] = map[string]interface{}{
+			"enabled":        true,
+			"agentDashboard": true,
+			"agentUsers":     true,
+		}
+	}
+
 	// 管理员区域 - 根据角色决定
 	if userRole == common.RoleAdminUser {
-		// 管理员可以访问管理员区域，但不能访问系统设置
 		defaultConfig["admin"] = map[string]interface{}{
 			"enabled":    true,
 			"channel":    true,
 			"models":     true,
 			"redemption": true,
 			"user":       true,
-			"setting":    false, // 管理员不能访问系统设置
+			"setting":    false,
 		}
 	} else if userRole == common.RoleRootUser {
-		// 超级管理员可以访问所有功能
 		defaultConfig["admin"] = map[string]interface{}{
 			"enabled":    true,
 			"channel":    true,
@@ -146,7 +154,6 @@ func generateDefaultSidebarConfigForRole(userRole int) string {
 			"setting":    true,
 		}
 	}
-	// 普通用户不包含admin区域
 
 	// 转换为JSON字符串
 	configBytes, err := json.Marshal(defaultConfig)
@@ -1036,4 +1043,283 @@ func RootUserExists() bool {
 		return false
 	}
 	return true
+}
+
+// AgentSubUserItem is a minimized, safe projection for agent sub-user listing.
+// It deliberately excludes sensitive fields such as access_token/email/oauth ids.
+type AgentSubUserItem struct {
+	Id              int            `json:"id" gorm:"column:id"`
+	Username        string         `json:"-" gorm:"column:username"`
+	DisplayName     string         `json:"display_name" gorm:"column:display_name"`
+	Quota           int            `json:"quota" gorm:"column:quota"`
+	UsedQuota       int            `json:"used_quota" gorm:"column:used_quota"`
+	RequestCount    int            `json:"request_count" gorm:"column:request_count"`
+	AffCount        int            `json:"aff_count" gorm:"column:aff_count"`
+	AffHistoryQuota int            `json:"aff_history_quota" gorm:"column:aff_history"`
+	RegisteredAt    int64          `json:"registered_at" gorm:"column:created_at"`
+	Status          int            `json:"status" gorm:"column:status"`
+	DeletedAt       gorm.DeletedAt `json:"-" gorm:"column:deleted_at"`
+}
+
+// GetAgentSubUsers returns paginated list of users invited by the agent.
+// NOTE: returns a safe DTO instead of full User entity to avoid data leakage.
+func GetAgentSubUsers(agentId int, pageInfo *common.PageInfo) (users []AgentSubUserItem, total int64, err error) {
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return nil, 0, tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	baseQuery := tx.Unscoped().Table("users").Where("inviter_id = ?", agentId)
+
+	err = baseQuery.Count(&total).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, 0, err
+	}
+
+	err = baseQuery.
+		Order("id desc").
+		Limit(pageInfo.GetPageSize()).
+		Offset(pageInfo.GetStartIdx()).
+		Find(&users).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, 0, err
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
+}
+
+// SearchAgentSubUsers searches sub-users by keyword, scoped to an agent's invitees.
+// NOTE: returns a safe DTO instead of full User entity to avoid data leakage.
+func SearchAgentSubUsers(agentId int, keyword string, startIdx int, num int) ([]AgentSubUserItem, int64, error) {
+	var users []AgentSubUserItem
+	var total int64
+
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return nil, 0, tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	query := tx.Unscoped().Table("users").Where("inviter_id = ?", agentId)
+
+	if keyword != "" {
+		likeCondition := "username LIKE ? OR display_name LIKE ?"
+		keywordInt, convErr := strconv.Atoi(keyword)
+		if convErr == nil {
+			likeCondition = "id = ? OR " + likeCondition
+			query = query.Where(likeCondition,
+				keywordInt, "%"+keyword+"%", "%"+keyword+"%")
+		} else {
+			query = query.Where(likeCondition,
+				"%"+keyword+"%", "%"+keyword+"%")
+		}
+	}
+
+	err := query.Count(&total).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, 0, err
+	}
+
+	err = query.Order("id desc").Limit(num).Offset(startIdx).Find(&users).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, 0, err
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
+}
+
+// GetAgentSubUserIDs returns all user IDs invited by the given agent
+func GetAgentSubUserIDs(agentId int) ([]int, error) {
+	var ids []int
+	err := DB.Model(&User{}).Where("inviter_id = ?", agentId).Pluck("id", &ids).Error
+	return ids, err
+}
+
+// AgentDashboardStats holds the dashboard statistics for an agent
+type AgentDashboardStats struct {
+	TodayTopup              float64 `json:"today_topup"`
+	TodayConsumption        int     `json:"today_consumption"`
+	TodayRegistrations      int64   `json:"today_registrations"`
+	TodayAgentRegistrations int64   `json:"today_agent_registrations"`
+	TotalSubUsers           int64   `json:"total_sub_users"`
+	// rankings
+	ModelRanking   []AgentRankItem `json:"model_ranking"`
+	UserRanking    []AgentRankItem `json:"user_ranking"`
+	ChannelRanking []AgentRankItem `json:"channel_ranking"`
+	ErrorRanking   []AgentRankItem `json:"error_ranking"`
+}
+
+type AgentRankItem struct {
+	Name  string `json:"name"`
+	Value int    `json:"value"`
+}
+
+func userHasCreatedAtColumn() bool {
+	if DB == nil {
+		return false
+	}
+	return DB.Migrator().HasColumn(&User{}, "created_at")
+}
+
+// GetAgentDashboardStats computes dashboard stats scoped to the agent's sub-users
+func GetAgentDashboardStats(agentId int, startTimestamp, endTimestamp int64) (*AgentDashboardStats, error) {
+	stats := &AgentDashboardStats{}
+
+	subUsersSubQuery := DB.Model(&User{}).Select("id").Where("inviter_id = ?", agentId)
+	var subUserIDs []int
+
+	// Total sub-users count
+	DB.Model(&User{}).Where("inviter_id = ?", agentId).Count(&stats.TotalSubUsers)
+
+	if startTimestamp == 0 {
+		now := time.Now()
+		startTimestamp = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Unix()
+	}
+	if endTimestamp == 0 {
+		endTimestamp = time.Now().Unix()
+	}
+
+	// created_at is not guaranteed on all historical databases.
+	// Guard these queries to avoid runtime SQL errors on instances without this column.
+	if userHasCreatedAtColumn() {
+		DB.Model(&User{}).Where("inviter_id = ? AND created_at >= ? AND created_at <= ?",
+			agentId, time.Unix(startTimestamp, 0), time.Unix(endTimestamp, 0)).Count(&stats.TodayRegistrations)
+
+		DB.Model(&User{}).Where("inviter_id = ? AND role = ? AND created_at >= ? AND created_at <= ?",
+			agentId, common.RoleAgentUser, time.Unix(startTimestamp, 0), time.Unix(endTimestamp, 0)).Count(&stats.TodayAgentRegistrations)
+	}
+
+	if stats.TotalSubUsers == 0 {
+		stats.ModelRanking = []AgentRankItem{}
+		stats.UserRanking = []AgentRankItem{}
+		stats.ChannelRanking = []AgentRankItem{}
+		stats.ErrorRanking = []AgentRankItem{}
+		return stats, nil
+	}
+
+	// Today top-up money from successful top-up orders of sub-users.
+	DB.Model(&TopUp{}).Select("COALESCE(sum(money), 0)").
+		Where("user_id IN (?) AND status = ? AND complete_time >= ? AND complete_time <= ?",
+			subUsersSubQuery, common.TopUpStatusSuccess, startTimestamp, endTimestamp).
+		Scan(&stats.TodayTopup)
+
+	// LOG_DB may be a standalone database (LOG_SQL_DSN).
+	// In that case, cross-database subquery against users table is unavailable.
+	useSubQueryOnLogDB := LOG_DB == DB
+	if !useSubQueryOnLogDB {
+		ids, err := GetAgentSubUserIDs(agentId)
+		if err != nil {
+			return nil, err
+		}
+		subUserIDs = ids
+	}
+
+	// Today consumption (sum of quota from logs)
+	consumeQuery := LOG_DB.Table("logs").Select("COALESCE(sum(quota), 0)").
+		Where("type = ? AND created_at >= ? AND created_at <= ?",
+			LogTypeConsume, startTimestamp, endTimestamp)
+	if useSubQueryOnLogDB {
+		consumeQuery = consumeQuery.Where("user_id IN (?)", subUsersSubQuery)
+	} else {
+		consumeQuery = consumeQuery.Where("user_id IN ?", subUserIDs)
+	}
+	consumeQuery.
+		Scan(&stats.TodayConsumption)
+
+	// Model ranking
+	var modelRanks []AgentRankItem
+	modelRankQuery := LOG_DB.Table("logs").Select("model_name as name, COALESCE(sum(quota), 0) as value").
+		Where("type = ? AND created_at >= ? AND created_at <= ?",
+			LogTypeConsume, startTimestamp, endTimestamp)
+	if useSubQueryOnLogDB {
+		modelRankQuery = modelRankQuery.Where("user_id IN (?)", subUsersSubQuery)
+	} else {
+		modelRankQuery = modelRankQuery.Where("user_id IN ?", subUserIDs)
+	}
+	modelRankQuery.
+		Group("model_name").Order("value desc").Limit(10).Scan(&modelRanks)
+	if modelRanks == nil {
+		modelRanks = []AgentRankItem{}
+	}
+	stats.ModelRanking = modelRanks
+
+	// User ranking
+	var userRanks []AgentRankItem
+	userRankQuery := LOG_DB.Table("logs").Select("username as name, COALESCE(sum(quota), 0) as value").
+		Where("type = ? AND created_at >= ? AND created_at <= ?",
+			LogTypeConsume, startTimestamp, endTimestamp)
+	if useSubQueryOnLogDB {
+		userRankQuery = userRankQuery.Where("user_id IN (?)", subUsersSubQuery)
+	} else {
+		userRankQuery = userRankQuery.Where("user_id IN ?", subUserIDs)
+	}
+	userRankQuery.
+		Group("username").Order("value desc").Limit(10).Scan(&userRanks)
+	if userRanks == nil {
+		userRanks = []AgentRankItem{}
+	}
+	stats.UserRanking = userRanks
+
+	// Channel ranking
+	type channelRankRow struct {
+		ChannelId int `json:"channel_id"`
+		Value     int `json:"value"`
+	}
+	var channelRows []channelRankRow
+	channelRankQuery := LOG_DB.Table("logs").Select("channel_id, COALESCE(sum(quota), 0) as value").
+		Where("type = ? AND created_at >= ? AND created_at <= ?",
+			LogTypeConsume, startTimestamp, endTimestamp)
+	if useSubQueryOnLogDB {
+		channelRankQuery = channelRankQuery.Where("user_id IN (?)", subUsersSubQuery)
+	} else {
+		channelRankQuery = channelRankQuery.Where("user_id IN ?", subUserIDs)
+	}
+	channelRankQuery.
+		Group("channel_id").Order("value desc").Limit(10).Scan(&channelRows)
+	channelRanks := make([]AgentRankItem, 0, len(channelRows))
+	for _, row := range channelRows {
+		channelRanks = append(channelRanks, AgentRankItem{
+			Name:  fmt.Sprintf("%d", row.ChannelId),
+			Value: row.Value,
+		})
+	}
+	stats.ChannelRanking = channelRanks
+
+	// Error model ranking
+	var errorRanks []AgentRankItem
+	errorRankQuery := LOG_DB.Table("logs").Select("model_name as name, count(*) as value").
+		Where("type = ? AND created_at >= ? AND created_at <= ?",
+			LogTypeError, startTimestamp, endTimestamp)
+	if useSubQueryOnLogDB {
+		errorRankQuery = errorRankQuery.Where("user_id IN (?)", subUsersSubQuery)
+	} else {
+		errorRankQuery = errorRankQuery.Where("user_id IN ?", subUserIDs)
+	}
+	errorRankQuery.
+		Group("model_name").Order("value desc").Limit(10).Scan(&errorRanks)
+	if errorRanks == nil {
+		errorRanks = []AgentRankItem{}
+	}
+	stats.ErrorRanking = errorRanks
+
+	return stats, nil
 }

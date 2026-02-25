@@ -21,7 +21,7 @@ import React, { lazy, Suspense, useContext, useMemo } from 'react';
 import { Route, Routes, useLocation, useParams } from 'react-router-dom';
 import Loading from './components/common/ui/Loading';
 import User from './pages/User';
-import { AuthRedirect, PrivateRoute, AdminRoute } from './helpers';
+import { AuthRedirect, PrivateRoute, AgentRoute, AdminRoute } from './helpers';
 import RegisterForm from './components/auth/RegisterForm';
 import LoginForm from './components/auth/LoginForm';
 import NotFound from './pages/NotFound';
@@ -55,6 +55,8 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const About = lazy(() => import('./pages/About'));
 const UserAgreement = lazy(() => import('./pages/UserAgreement'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const AgentDashboard = lazy(() => import('./pages/Agent/AgentDashboard'));
+const AgentUsers = lazy(() => import('./pages/Agent/AgentUsers'));
 
 function DynamicOAuth2Callback() {
   const { provider } = useParams();
@@ -153,6 +155,26 @@ function App() {
             <PrivateRoute>
               <Playground />
             </PrivateRoute>
+          }
+        />
+        <Route
+          path='/console/agent'
+          element={
+            <AgentRoute>
+              <Suspense fallback={<Loading />}>
+                <AgentDashboard />
+              </Suspense>
+            </AgentRoute>
+          }
+        />
+        <Route
+          path='/console/agent/users'
+          element={
+            <AgentRoute>
+              <Suspense fallback={<Loading />}>
+                <AgentUsers />
+              </Suspense>
+            </AgentRoute>
           }
         />
         <Route

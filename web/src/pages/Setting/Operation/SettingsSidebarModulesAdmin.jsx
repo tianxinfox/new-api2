@@ -58,6 +58,11 @@ export default function SettingsSidebarModulesAdmin(props) {
       topup: true,
       personal: true,
     },
+    agent: {
+      enabled: true,
+      agentDashboard: true,
+      agentUsers: true,
+    },
     admin: {
       enabled: true,
       channel: true,
@@ -118,6 +123,11 @@ export default function SettingsSidebarModulesAdmin(props) {
         enabled: true,
         topup: true,
         personal: true,
+      },
+      agent: {
+        enabled: true,
+        agentDashboard: true,
+        agentUsers: true,
       },
       admin: {
         enabled: true,
@@ -188,6 +198,7 @@ export default function SettingsSidebarModulesAdmin(props) {
             task: true,
           },
           personal: { enabled: true, topup: true, personal: true },
+          agent: { enabled: true, agentDashboard: true, agentUsers: true },
           admin: {
             enabled: true,
             channel: true,
@@ -245,6 +256,23 @@ export default function SettingsSidebarModulesAdmin(props) {
           key: 'personal',
           title: t('个人设置'),
           description: t('个人信息设置'),
+        },
+      ],
+    },
+    {
+      key: 'agent',
+      title: t('代理区域'),
+      description: t('代理管理功能'),
+      modules: [
+        {
+          key: 'agentDashboard',
+          title: t('代理面板'),
+          description: t('代理数据统计'),
+        },
+        {
+          key: 'agentUsers',
+          title: t('邀请用户'),
+          description: t('下级用户管理'),
         },
       ],
     },

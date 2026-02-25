@@ -896,7 +896,11 @@ func ManageUser(c *gin.Context) {
 			common.ApiErrorI18n(c, i18n.MsgUserAlreadyAdmin)
 			return
 		}
-		user.Role = common.RoleAdminUser
+		if user.Role < common.RoleAgentUser {
+			user.Role = common.RoleAgentUser
+		} else {
+			user.Role = common.RoleAdminUser
+		}
 	case "demote":
 		if user.Role == common.RoleRootUser {
 			common.ApiErrorI18n(c, i18n.MsgUserCannotDemoteRootUser)
@@ -906,7 +910,11 @@ func ManageUser(c *gin.Context) {
 			common.ApiErrorI18n(c, i18n.MsgUserAlreadyCommon)
 			return
 		}
-		user.Role = common.RoleCommonUser
+		if user.Role > common.RoleAgentUser {
+			user.Role = common.RoleAgentUser
+		} else {
+			user.Role = common.RoleCommonUser
+		}
 	}
 
 	if err := user.Update(false); err != nil {

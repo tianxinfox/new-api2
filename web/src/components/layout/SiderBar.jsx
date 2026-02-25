@@ -25,7 +25,7 @@ import { ChevronLeft } from 'lucide-react';
 import { useSidebarCollapsed } from '../../hooks/common/useSidebarCollapsed';
 import { useSidebar } from '../../hooks/common/useSidebar';
 import { useMinimumLoadingTime } from '../../hooks/common/useMinimumLoadingTime';
-import { isAdmin, isRoot, showError } from '../../helpers';
+import { isAgent, isAdmin, isRoot, showError } from '../../helpers';
 import SkeletonWrapper from './components/SkeletonWrapper';
 
 import { Nav, Divider, Button } from '@douyinfe/semi-ui';
@@ -49,6 +49,8 @@ const routerMap = {
   deployment: '/console/deployment',
   playground: '/console/playground',
   personal: '/console/personal',
+  agentDashboard: '/console/agent',
+  agentUsers: '/console/agent/users',
 };
 
 const SiderBar = ({ onNavigate = () => {} }) => {
@@ -144,6 +146,30 @@ const SiderBar = ({ onNavigate = () => {} }) => {
 
     return filteredItems;
   }, [t, isModuleVisible]);
+
+  const agentItems = useMemo(() => {
+    const items = [
+      {
+        text: t('代理面板'),
+        itemKey: 'agentDashboard',
+        to: '/console/agent',
+        className: isAgent() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('邀请用户'),
+        itemKey: 'agentUsers',
+        to: '/console/agent/users',
+        className: isAgent() ? '' : 'tableHiddle',
+      },
+    ];
+
+    const filteredItems = items.filter((item) => {
+      const configVisible = isModuleVisible('agent', item.itemKey);
+      return configVisible;
+    });
+
+    return filteredItems;
+  }, [isAgent(), t, isModuleVisible]);
 
   const adminItems = useMemo(() => {
     const items = [
@@ -471,6 +497,19 @@ const SiderBar = ({ onNavigate = () => {} }) => {
                   <div className='sidebar-group-label'>{t('个人中心')}</div>
                 )}
                 {financeItems.map((item) => renderNavItem(item))}
+              </div>
+            </>
+          )}
+
+          {/* 代理区域 - 只在代理及以上角色时显示 */}
+          {isAgent() && hasSectionVisibleModules('agent') && (
+            <>
+              <Divider className='sidebar-divider' />
+              <div>
+                {!collapsed && (
+                  <div className='sidebar-group-label'>{t('代理管理')}</div>
+                )}
+                {agentItems.map((item) => renderNavItem(item))}
               </div>
             </>
           )}
