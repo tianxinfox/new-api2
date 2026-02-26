@@ -404,6 +404,7 @@ func GetSelf(c *gin.Context) {
 		"aff_quota":         user.AffQuota,
 		"aff_history_quota": user.AffHistoryQuota,
 		"inviter_id":        user.InviterId,
+		"rebate_rate":       user.RebateRate,
 		"linux_do_id":       user.LinuxDOId,
 		"setting":           user.Setting,
 		"stripe_customer":   user.StripeCustomer,
@@ -562,6 +563,10 @@ func UpdateUser(c *gin.Context) {
 	}
 	if myRole <= updatedUser.Role && myRole != common.RoleRootUser {
 		common.ApiErrorI18n(c, i18n.MsgUserCannotCreateHigherLevel)
+		return
+	}
+	if updatedUser.RebateRate < 0 || updatedUser.RebateRate > 10000 {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
 	if updatedUser.Password == "$I_LOVE_U" {

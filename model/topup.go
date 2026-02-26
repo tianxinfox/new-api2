@@ -99,6 +99,11 @@ func Recharge(referenceId string, customerId string) (err error) {
 		return errors.New("充值失败，请稍后重试")
 	}
 
+	if rebateErr := SettleAgentRebateForTopUp(topUp, int64(quota)); rebateErr != nil {
+		common.SysError("settle agent rebate failed: " + rebateErr.Error())
+		EnqueueAgentRebateRetryTask(AgentRebateSourceTopUp, topUp.Id, int64(quota), rebateErr.Error())
+	}
+
 	RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%d", logger.FormatQuota(int(quota)), topUp.Amount))
 
 	return nil
@@ -246,9 +251,26 @@ func ManualCompleteTopUp(tradeNo string) error {
 		refCol = `"trade_no"`
 	}
 
+	calcCreditedQuota := func(topUp *TopUp) int64 {
+		if topUp == nil {
+			return 0
+		}
+		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
+		if topUp.PaymentMethod == "stripe" {
+			return decimal.NewFromFloat(topUp.Money).Mul(dQuotaPerUnit).IntPart()
+		}
+		quota := decimal.NewFromInt(topUp.Amount).Mul(dQuotaPerUnit).IntPart()
+		if quota <= 0 && topUp.Money > 0 {
+			quota = decimal.NewFromFloat(topUp.Money).Mul(dQuotaPerUnit).IntPart()
+		}
+		return quota
+	}
+
 	var userId int
-	var quotaToAdd int
+	var quotaToAdd int64
 	var payMoney float64
+	var topUpId int
+	var quotaCredited bool
 
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		topUp := &TopUp{}
@@ -257,7 +279,12 @@ func ManualCompleteTopUp(tradeNo string) error {
 			return errors.New("充值订单不存在")
 		}
 
-		// 幂等处理：已成功直接返回
+		userId = topUp.UserId
+		payMoney = topUp.Money
+		topUpId = topUp.Id
+		quotaToAdd = calcCreditedQuota(topUp)
+
+		// 幂等处理：已成功直接返回（但事务外仍允许补触发返利结算）
 		if topUp.Status == common.TopUpStatusSuccess {
 			return nil
 		}
@@ -266,17 +293,6 @@ func ManualCompleteTopUp(tradeNo string) error {
 			return errors.New("订单状态不是待支付，无法补单")
 		}
 
-		// 计算应充值额度：
-		// - Stripe 订单：Money 代表经分组倍率换算后的美元数量，直接 * QuotaPerUnit
-		// - 其他订单（如易支付）：Amount 为美元数量，* QuotaPerUnit
-		if topUp.PaymentMethod == "stripe" {
-			dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
-			quotaToAdd = int(decimal.NewFromFloat(topUp.Money).Mul(dQuotaPerUnit).IntPart())
-		} else {
-			dAmount := decimal.NewFromInt(topUp.Amount)
-			dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
-			quotaToAdd = int(dAmount.Mul(dQuotaPerUnit).IntPart())
-		}
 		if quotaToAdd <= 0 {
 			return errors.New("无效的充值额度")
 		}
@@ -293,8 +309,7 @@ func ManualCompleteTopUp(tradeNo string) error {
 			return err
 		}
 
-		userId = topUp.UserId
-		payMoney = topUp.Money
+		quotaCredited = true
 		return nil
 	})
 
@@ -302,8 +317,21 @@ func ManualCompleteTopUp(tradeNo string) error {
 		return err
 	}
 
-	// 事务外记录日志，避免阻塞
-	RecordLog(userId, LogTypeTopup, fmt.Sprintf("管理员补单成功，充值金额: %v，支付金额：%f", logger.FormatQuota(quotaToAdd), payMoney))
+	if rebateErr := SettleAgentRebateForTopUp(&TopUp{
+		Id:      topUpId,
+		UserId:  userId,
+		Money:   payMoney,
+		TradeNo: tradeNo,
+	}, quotaToAdd); rebateErr != nil {
+		// The top-up has been completed; rebate settlement is best-effort.
+		common.SysError("settle agent rebate failed: " + rebateErr.Error())
+		EnqueueAgentRebateRetryTask(AgentRebateSourceTopUp, topUpId, quotaToAdd, rebateErr.Error())
+	}
+
+	// 事务外记录日志，避免阻塞（仅在本次确实完成补单加额时记录）
+	if quotaCredited {
+		RecordLog(userId, LogTypeTopup, fmt.Sprintf("管理员补单成功，充值金额: %v，支付金额：%f", logger.FormatQuota(int(quotaToAdd)), payMoney))
+	}
 	return nil
 }
 func RechargeCreem(referenceId string, customerEmail string, customerName string) (err error) {
@@ -370,6 +398,11 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 	if err != nil {
 		common.SysError("creem topup failed: " + err.Error())
 		return errors.New("充值失败，请稍后重试")
+	}
+
+	if rebateErr := SettleAgentRebateForTopUp(topUp, quota); rebateErr != nil {
+		common.SysError("settle agent rebate failed: " + rebateErr.Error())
+		EnqueueAgentRebateRetryTask(AgentRebateSourceTopUp, topUp.Id, quota, rebateErr.Error())
 	}
 
 	RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("使用Creem充值成功，充值额度: %v，支付金额：%.2f", quota, topUp.Money))

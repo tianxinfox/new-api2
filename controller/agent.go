@@ -129,3 +129,32 @@ func GetAgentTopUps(c *gin.Context) {
 	pageInfo.SetItems(items)
 	common.ApiSuccess(c, pageInfo)
 }
+
+func GetAgentRebates(c *gin.Context) {
+	agentId := c.GetInt("id")
+	pageInfo := common.GetPageQuery(c)
+	keyword := strings.TrimSpace(c.Query("keyword"))
+
+	items, total, err := model.GetAgentRebateRecords(agentId, keyword, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(items)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func GetAgentRebateStats(c *gin.Context) {
+	agentId := c.GetInt("id")
+	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
+	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
+
+	stats, err := model.GetAgentRebateStats(agentId, startTimestamp, endTimestamp)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, stats)
+}

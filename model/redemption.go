@@ -154,6 +154,10 @@ func Redeem(key string, userId int) (quota int, err error) {
 		common.SysError("redemption failed: " + err.Error())
 		return 0, ErrRedeemFailed
 	}
+	if rebateErr := SettleAgentRebateForRedemption(redemption); rebateErr != nil {
+		common.SysError("settle agent rebate failed: " + rebateErr.Error())
+		EnqueueAgentRebateRetryTask(AgentRebateSourceRedemption, redemption.Id, int64(redemption.Quota), rebateErr.Error())
+	}
 	RecordLog(userId, LogTypeTopup, fmt.Sprintf("通过兑换码充值 %s，兑换码ID %d", logger.LogQuota(redemption.Quota), redemption.Id))
 	return redemption.Quota, nil
 }

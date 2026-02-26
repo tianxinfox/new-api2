@@ -52,6 +52,7 @@ const routerMap = {
   agentDashboard: '/console/agent',
   agentUsers: '/console/agent/users',
   agentTopups: '/console/agent/topups',
+  agentRebates: '/console/agent/rebates',
 };
 
 const SiderBar = ({ onNavigate = () => {} }) => {
@@ -166,6 +167,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('充值账单'),
         itemKey: 'agentTopups',
         to: '/console/agent/topups',
+        className: isAgent() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('返利明细'),
+        itemKey: 'agentRebates',
+        to: '/console/agent/rebates',
         className: isAgent() ? '' : 'tableHiddle',
       },
     ];

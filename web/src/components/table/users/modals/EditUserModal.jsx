@@ -87,6 +87,7 @@ const EditUserModal = (props) => {
     quota: 0,
     group: 'default',
     remark: '',
+    rebate_rate_percent: 0,
   });
 
   const fetchGroups = async () => {
@@ -107,7 +108,12 @@ const EditUserModal = (props) => {
     const { success, message, data } = res.data;
     if (success) {
       data.password = '';
-      formApiRef.current?.setValues({ ...getInitValues(), ...data });
+      const rebateRate = Number(data.rebate_rate || 0);
+      formApiRef.current?.setValues({
+        ...getInitValues(),
+        ...data,
+        rebate_rate_percent: rebateRate / 100,
+      });
     } else {
       showError(message);
     }
@@ -132,6 +138,18 @@ const EditUserModal = (props) => {
   const submit = async (values) => {
     setLoading(true);
     let payload = { ...values };
+    const rebatePercent = Number(payload.rebate_rate_percent || 0);
+    if (
+      Number.isNaN(rebatePercent) ||
+      rebatePercent < 0 ||
+      rebatePercent > 100
+    ) {
+      showError(t('返利比例必须在 0-100 之间'));
+      setLoading(false);
+      return;
+    }
+    payload.rebate_rate = Math.round(rebatePercent * 100);
+    delete payload.rebate_rate_percent;
     if (typeof payload.quota === 'string')
       payload.quota = parseInt(payload.quota) || 0;
     if (userId) {
@@ -322,6 +340,19 @@ const EditUserModal = (props) => {
                             onClick={() => setIsModalOpen(true)}
                           />
                         </Form.Slot>
+                      </Col>
+                      <Col span={24}>
+                        <Form.InputNumber
+                          field='rebate_rate_percent'
+                          label={t('代理返利比例(%)')}
+                          min={0}
+                          max={100}
+                          precision={2}
+                          step={0.1}
+                          placeholder={t('例如 15 表示 15%')}
+                          extraText={t('仅代理角色生效，按下游充值金额比例返利')}
+                          style={{ width: '100%' }}
+                        />
                       </Col>
                     </Row>
                   </Card>

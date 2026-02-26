@@ -155,6 +155,8 @@ export function getLucideIcon(key, selected = false) {
       return <Users {...commonProps} color={iconColor} />;
     case 'agentTopups':
       return <CreditCard {...commonProps} color={iconColor} />;
+    case 'agentRebates':
+      return <Gift {...commonProps} color={iconColor} />;
     default:
       return <CircleUser {...commonProps} color={iconColor} />;
   }

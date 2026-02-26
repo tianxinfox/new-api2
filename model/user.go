@@ -47,6 +47,7 @@ type User struct {
 	AffQuota         int            `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
 	AffHistoryQuota  int            `json:"aff_history_quota" gorm:"type:int;default:0;column:aff_history"` // 邀请历史额度
 	InviterId        int            `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
+	RebateRate       int            `json:"rebate_rate" gorm:"type:int;default:0;column:rebate_rate"` // agent rebate rate in bps, 10000 = 100%
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
 	LinuxDOId        string         `json:"linux_do_id" gorm:"column:linux_do_id;index"`
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
@@ -132,6 +133,8 @@ func generateDefaultSidebarConfigForRole(userRole int) string {
 			"enabled":        true,
 			"agentDashboard": true,
 			"agentUsers":     true,
+			"agentTopups":    true,
+			"agentRebates":   true,
 		}
 	}
 
@@ -533,6 +536,7 @@ func (user *User) Edit(updatePassword bool) error {
 		"group":        newUser.Group,
 		"quota":        newUser.Quota,
 		"remark":       newUser.Remark,
+		"rebate_rate":  newUser.RebateRate,
 	}
 	if updatePassword {
 		updates["password"] = newUser.Password
