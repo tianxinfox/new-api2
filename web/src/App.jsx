@@ -57,6 +57,7 @@ const UserAgreement = lazy(() => import('./pages/UserAgreement'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const AgentDashboard = lazy(() => import('./pages/Agent/AgentDashboard'));
 const AgentUsers = lazy(() => import('./pages/Agent/AgentUsers'));
+const AgentTopups = lazy(() => import('./pages/Agent/AgentTopups'));
 
 function DynamicOAuth2Callback() {
   const { provider } = useParams();
@@ -173,6 +174,16 @@ function App() {
             <AgentRoute>
               <Suspense fallback={<Loading />}>
                 <AgentUsers />
+              </Suspense>
+            </AgentRoute>
+          }
+        />
+        <Route
+          path='/console/agent/topups'
+          element={
+            <AgentRoute>
+              <Suspense fallback={<Loading />}>
+                <AgentTopups />
               </Suspense>
             </AgentRoute>
           }

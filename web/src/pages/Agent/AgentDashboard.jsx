@@ -89,6 +89,32 @@ const AgentDashboard = () => {
       textColor: 'text-purple-600',
     },
   ];
+  const cumulativeCards = [
+    {
+      label: t('累计充值'),
+      value: stats ? `${currencySymbol}${Number(stats.total_topup || 0).toFixed(2)}` : '-',
+      color: 'bg-emerald-50',
+      textColor: 'text-emerald-600',
+    },
+    {
+      label: t('累计消费'),
+      value: stats ? renderQuota(stats.total_consumption) : '-',
+      color: 'bg-orange-50',
+      textColor: 'text-orange-600',
+    },
+    {
+      label: t('累计注册'),
+      value: stats ? stats.total_registrations : '-',
+      color: 'bg-blue-50',
+      textColor: 'text-blue-600',
+    },
+    {
+      label: t('累计代理注册'),
+      value: stats ? stats.total_agent_registrations : '-',
+      color: 'bg-purple-50',
+      textColor: 'text-purple-600',
+    },
+  ];
 
   const renderRankingTable = (
     title,
@@ -165,6 +191,26 @@ const AgentDashboard = () => {
 
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
         {statCards.map((card, idx) => (
+          <Card
+            key={idx}
+            className={`!rounded-2xl border-0 shadow-sm ${card.color}`}
+            bodyStyle={{ padding: '20px 24px' }}
+          >
+            <div className='text-sm text-gray-500 mb-2'>{card.label}</div>
+            <Skeleton loading={loading} active placeholder={<Skeleton.Paragraph rows={1} style={{ width: 80, height: 32 }} />}>
+              <div className={`text-2xl font-bold ${card.textColor}`}>
+                {card.value}
+              </div>
+            </Skeleton>
+          </Card>
+        ))}
+      </div>
+
+      <div className='mb-4'>
+        <Text className='text-base font-semibold'>{t('累计数据')}</Text>
+      </div>
+      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
+        {cumulativeCards.map((card, idx) => (
           <Card
             key={idx}
             className={`!rounded-2xl border-0 shadow-sm ${card.color}`}

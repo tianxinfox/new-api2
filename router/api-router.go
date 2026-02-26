@@ -244,6 +244,7 @@ func SetApiRouter(router *gin.Engine) {
 			agentRoute.GET("/dashboard", controller.GetAgentDashboard)
 			agentRoute.GET("/users", controller.GetAgentSubUsers)
 			agentRoute.GET("/users/search", controller.SearchAgentSubUsers)
+			agentRoute.GET("/topups", controller.GetAgentTopUps)
 		}
 
 		tokenRoute := apiRouter.Group("/token")

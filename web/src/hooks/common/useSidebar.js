@@ -48,6 +48,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     enabled: true,
     agentDashboard: true,
     agentUsers: true,
+    agentTopups: true,
   },
   admin: {
     enabled: true,

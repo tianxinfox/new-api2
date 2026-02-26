@@ -62,6 +62,7 @@ export default function SettingsSidebarModulesAdmin(props) {
       enabled: true,
       agentDashboard: true,
       agentUsers: true,
+      agentTopups: true,
     },
     admin: {
       enabled: true,
@@ -128,6 +129,7 @@ export default function SettingsSidebarModulesAdmin(props) {
         enabled: true,
         agentDashboard: true,
         agentUsers: true,
+        agentTopups: true,
       },
       admin: {
         enabled: true,
@@ -198,7 +200,7 @@ export default function SettingsSidebarModulesAdmin(props) {
             task: true,
           },
           personal: { enabled: true, topup: true, personal: true },
-          agent: { enabled: true, agentDashboard: true, agentUsers: true },
+          agent: { enabled: true, agentDashboard: true, agentUsers: true, agentTopups: true },
           admin: {
             enabled: true,
             channel: true,
@@ -273,6 +275,11 @@ export default function SettingsSidebarModulesAdmin(props) {
           key: 'agentUsers',
           title: t('邀请用户'),
           description: t('下级用户管理'),
+        },
+        {
+          key: 'agentTopups',
+          title: t('充值账单'),
+          description: t('下级充值记录'),
         },
       ],
     },

@@ -1164,6 +1164,10 @@ type AgentDashboardStats struct {
 	TodayConsumption        int     `json:"today_consumption"`
 	TodayRegistrations      int64   `json:"today_registrations"`
 	TodayAgentRegistrations int64   `json:"today_agent_registrations"`
+	TotalTopup              float64 `json:"total_topup"`
+	TotalConsumption        int     `json:"total_consumption"`
+	TotalRegistrations      int64   `json:"total_registrations"`
+	TotalAgentRegistrations int64   `json:"total_agent_registrations"`
 	TotalSubUsers           int64   `json:"total_sub_users"`
 	// rankings
 	ModelRanking   []AgentRankItem `json:"model_ranking"`
@@ -1193,6 +1197,8 @@ func GetAgentDashboardStats(agentId int, startTimestamp, endTimestamp int64) (*A
 
 	// Total sub-users count
 	DB.Model(&User{}).Where("inviter_id = ?", agentId).Count(&stats.TotalSubUsers)
+	DB.Model(&User{}).Where("inviter_id = ? AND role = ?", agentId, common.RoleAgentUser).Count(&stats.TotalAgentRegistrations)
+	stats.TotalRegistrations = stats.TotalSubUsers
 
 	if startTimestamp == 0 {
 		now := time.Now()
@@ -1206,10 +1212,10 @@ func GetAgentDashboardStats(agentId int, startTimestamp, endTimestamp int64) (*A
 	// Guard these queries to avoid runtime SQL errors on instances without this column.
 	if userHasCreatedAtColumn() {
 		DB.Model(&User{}).Where("inviter_id = ? AND created_at >= ? AND created_at <= ?",
-			agentId, time.Unix(startTimestamp, 0), time.Unix(endTimestamp, 0)).Count(&stats.TodayRegistrations)
+			agentId, startTimestamp, endTimestamp).Count(&stats.TodayRegistrations)
 
 		DB.Model(&User{}).Where("inviter_id = ? AND role = ? AND created_at >= ? AND created_at <= ?",
-			agentId, common.RoleAgentUser, time.Unix(startTimestamp, 0), time.Unix(endTimestamp, 0)).Count(&stats.TodayAgentRegistrations)
+			agentId, common.RoleAgentUser, startTimestamp, endTimestamp).Count(&stats.TodayAgentRegistrations)
 	}
 
 	if stats.TotalSubUsers == 0 {
@@ -1221,10 +1227,28 @@ func GetAgentDashboardStats(agentId int, startTimestamp, endTimestamp int64) (*A
 	}
 
 	// Today top-up money from successful top-up orders of sub-users.
+	var todayOnlineTopup float64
 	DB.Model(&TopUp{}).Select("COALESCE(sum(money), 0)").
 		Where("user_id IN (?) AND status = ? AND complete_time >= ? AND complete_time <= ?",
 			subUsersSubQuery, common.TopUpStatusSuccess, startTimestamp, endTimestamp).
-		Scan(&stats.TodayTopup)
+		Scan(&todayOnlineTopup)
+	var todayRedeemQuota int64
+	DB.Model(&Redemption{}).Select("COALESCE(sum(quota), 0)").
+		Where("used_user_id IN (?) AND status = ? AND redeemed_time >= ? AND redeemed_time <= ?",
+			subUsersSubQuery, common.RedemptionCodeStatusUsed, startTimestamp, endTimestamp).
+		Scan(&todayRedeemQuota)
+	stats.TodayTopup = todayOnlineTopup + float64(todayRedeemQuota)/common.QuotaPerUnit
+
+	// Total top-up money from successful top-up orders of sub-users.
+	var totalOnlineTopup float64
+	DB.Model(&TopUp{}).Select("COALESCE(sum(money), 0)").
+		Where("user_id IN (?) AND status = ?", subUsersSubQuery, common.TopUpStatusSuccess).
+		Scan(&totalOnlineTopup)
+	var totalRedeemQuota int64
+	DB.Model(&Redemption{}).Select("COALESCE(sum(quota), 0)").
+		Where("used_user_id IN (?) AND status = ?", subUsersSubQuery, common.RedemptionCodeStatusUsed).
+		Scan(&totalRedeemQuota)
+	stats.TotalTopup = totalOnlineTopup + float64(totalRedeemQuota)/common.QuotaPerUnit
 
 	// LOG_DB may be a standalone database (LOG_SQL_DSN).
 	// In that case, cross-database subquery against users table is unavailable.
@@ -1248,6 +1272,17 @@ func GetAgentDashboardStats(agentId int, startTimestamp, endTimestamp int64) (*A
 	}
 	consumeQuery.
 		Scan(&stats.TodayConsumption)
+
+	// Total consumption (sum of quota from logs)
+	totalConsumeQuery := LOG_DB.Table("logs").Select("COALESCE(sum(quota), 0)").
+		Where("type = ?", LogTypeConsume)
+	if useSubQueryOnLogDB {
+		totalConsumeQuery = totalConsumeQuery.Where("user_id IN (?)", subUsersSubQuery)
+	} else {
+		totalConsumeQuery = totalConsumeQuery.Where("user_id IN ?", subUserIDs)
+	}
+	totalConsumeQuery.
+		Scan(&stats.TotalConsumption)
 
 	// Model ranking
 	var modelRanks []AgentRankItem

@@ -113,3 +113,19 @@ func SearchAgentSubUsers(c *gin.Context) {
 
 	common.ApiSuccess(c, pageInfo)
 }
+
+func GetAgentTopUps(c *gin.Context) {
+	agentId := c.GetInt("id")
+	pageInfo := common.GetPageQuery(c)
+	keyword := strings.TrimSpace(c.Query("keyword"))
+
+	items, total, err := model.GetAgentTopUpRecords(agentId, keyword, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(items)
+	common.ApiSuccess(c, pageInfo)
+}
