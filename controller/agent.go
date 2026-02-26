@@ -20,11 +20,14 @@ type AgentUserStatistics struct {
 type AgentUserInviteInfo struct {
 	AffCount        int `json:"aff_count"`
 	AffHistoryQuota int `json:"aff_history_quota"`
+	InviterId       int `json:"inviter_id"`
 }
 
 type AgentSubUserResponse struct {
 	Id           int                 `json:"id"`
 	Nickname     string              `json:"nickname"`
+	Role         int                 `json:"role"`
+	Group        string              `json:"group"`
 	Statistics   AgentUserStatistics `json:"statistics"`
 	InviteInfo   AgentUserInviteInfo `json:"invite_info"`
 	RegisteredAt int64               `json:"registered_at"`
@@ -41,6 +44,8 @@ func toAgentSubUserResponses(items []model.AgentSubUserItem) []AgentSubUserRespo
 		resp = append(resp, AgentSubUserResponse{
 			Id:       item.Id,
 			Nickname: nickname,
+			Role:     item.Role,
+			Group:    item.Group,
 			Statistics: AgentUserStatistics{
 				Quota:        item.Quota,
 				UsedQuota:    item.UsedQuota,
@@ -49,6 +54,7 @@ func toAgentSubUserResponses(items []model.AgentSubUserItem) []AgentSubUserRespo
 			InviteInfo: AgentUserInviteInfo{
 				AffCount:        item.AffCount,
 				AffHistoryQuota: item.AffHistoryQuota,
+				InviterId:       item.InviterId,
 			},
 			RegisteredAt: item.RegisteredAt,
 			IsActive:     item.Status == common.UserStatusEnabled && !item.DeletedAt.Valid,

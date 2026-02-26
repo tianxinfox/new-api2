@@ -1052,6 +1052,9 @@ type AgentSubUserItem struct {
 	Id              int            `json:"id" gorm:"column:id"`
 	Username        string         `json:"-" gorm:"column:username"`
 	DisplayName     string         `json:"display_name" gorm:"column:display_name"`
+	Role            int            `json:"role" gorm:"column:role"`
+	Group           string         `json:"group" gorm:"column:group"`
+	InviterId       int            `json:"inviter_id" gorm:"column:inviter_id"`
 	Quota           int            `json:"quota" gorm:"column:quota"`
 	UsedQuota       int            `json:"used_quota" gorm:"column:used_quota"`
 	RequestCount    int            `json:"request_count" gorm:"column:request_count"`

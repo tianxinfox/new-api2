@@ -97,13 +97,13 @@ const AgentDashboard = () => {
     valueLabel,
     isQuota = false,
   ) => (
-    <Card className='!rounded-2xl border-0 shadow-sm'>
-      <div className='flex items-center justify-between mb-4'>
+    <Card className='!rounded-2xl border-0 shadow-sm' bodyStyle={{ padding: '20px 24px' }}>
+      <div className='flex items-center justify-between mb-5'>
         <Text strong className='text-base'>
           {title}
         </Text>
       </div>
-      <div className='space-y-1'>
+      <div className='space-y-2'>
         <div className='flex items-center justify-between text-xs text-gray-400 pb-2 border-b'>
           <span>{keyLabel}</span>
           <span>{valueLabel}</span>
@@ -112,7 +112,7 @@ const AgentDashboard = () => {
           data.map((item, idx) => (
             <div
               key={idx}
-              className='flex items-center justify-between py-1.5'
+              className='flex items-center justify-between py-2'
             >
               <span className='text-sm text-gray-700 truncate max-w-[60%]'>
                 {item.name || '-'}
@@ -123,7 +123,7 @@ const AgentDashboard = () => {
             </div>
           ))
         ) : (
-          <div className='text-center text-gray-400 py-4 text-sm'>
+          <div className='text-center text-gray-400 py-6 text-sm'>
             {t('暂无数据')}
           </div>
         )}
@@ -132,42 +132,45 @@ const AgentDashboard = () => {
   );
 
   return (
-    <div className='mt-[60px] px-4 max-w-[1400px] mx-auto'>
-      <div className='mb-6'>
+    <div className='mt-[60px] px-6 pb-8 max-w-[1400px] mx-auto'>
+      <div className='mb-8'>
         <Text className='text-2xl font-bold'>{t('代理面板')}</Text>
       </div>
 
-      <Card className='!rounded-2xl border-0 shadow-sm mb-6'>
-        <div className='flex items-center gap-4 flex-wrap'>
-          <span className='text-sm text-gray-500'>{t('选择日期')}:</span>
-          <DatePicker
-            type='dateRange'
-            density='compact'
-            placeholder={t('默认今天')}
-            onChange={(dates) => setDateRange(dates)}
-            style={{ width: 260 }}
-          />
-          <Button
-            theme='solid'
-            type='primary'
-            onClick={handleQuery}
-            loading={loading}
-          >
-            {t('查询')}
-          </Button>
-          <span className='text-xs text-gray-400'>
-            {t('默认查询今天及昨天的数据')}
-          </span>
-        </div>
-      </Card>
+      <div className='mb-8'>
+        <Card className='!rounded-2xl border-0 shadow-sm'>
+          <div className='flex items-center gap-4 flex-wrap'>
+            <span className='text-sm text-gray-500'>{t('选择日期')}:</span>
+            <DatePicker
+              type='dateRange'
+              density='compact'
+              placeholder={t('默认今天')}
+              onChange={(dates) => setDateRange(dates)}
+              style={{ width: 260 }}
+            />
+            <Button
+              theme='solid'
+              type='primary'
+              onClick={handleQuery}
+              loading={loading}
+            >
+              {t('查询')}
+            </Button>
+            <span className='text-xs text-gray-400'>
+              {t('默认查询今天及昨天的数据')}
+            </span>
+          </div>
+        </Card>
+      </div>
 
-      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6'>
+      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
         {statCards.map((card, idx) => (
           <Card
             key={idx}
             className={`!rounded-2xl border-0 shadow-sm ${card.color}`}
+            bodyStyle={{ padding: '20px 24px' }}
           >
-            <div className='text-sm text-gray-500 mb-1'>{card.label}</div>
+            <div className='text-sm text-gray-500 mb-2'>{card.label}</div>
             <Skeleton loading={loading} active placeholder={<Skeleton.Paragraph rows={1} style={{ width: 80, height: 32 }} />}>
               <div className={`text-2xl font-bold ${card.textColor}`}>
                 {card.value}
@@ -177,7 +180,7 @@ const AgentDashboard = () => {
         ))}
       </div>
 
-      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
+      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
         {renderRankingTable(
           t('模型排行'),
           t('模型'),
