@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build -o /dev/null ./controller/topup_wechat.go)"
+    ]
+  }
+}

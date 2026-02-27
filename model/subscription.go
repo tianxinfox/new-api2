@@ -199,6 +199,7 @@ type SubscriptionOrder struct {
 	Money  float64 `json:"money"`
 
 	TradeNo       string `json:"trade_no" gorm:"unique;type:varchar(255);index"`
+	WeChatTradeNo string `json:"wechat_trade_no" gorm:"type:varchar(64);default:'';index"`
 	PaymentMethod string `json:"payment_method" gorm:"type:varchar(50)"`
 	Status        string `json:"status"`
 	CreateTime    int64  `json:"create_time"`
@@ -227,6 +228,29 @@ func GetSubscriptionOrderByTradeNo(tradeNo string) *SubscriptionOrder {
 		return nil
 	}
 	return &order
+}
+
+func BindSubscriptionWeChatTradeNo(tradeNo string, weChatTradeNo string) error {
+	if strings.TrimSpace(tradeNo) == "" {
+		return errors.New("tradeNo is empty")
+	}
+	weChatTradeNo = strings.TrimSpace(weChatTradeNo)
+	if weChatTradeNo == "" {
+		return errors.New("wechat transaction id is empty")
+	}
+
+	order := &SubscriptionOrder{}
+	if err := DB.Select("id", "wechat_trade_no").Where("trade_no = ?", tradeNo).First(order).Error; err != nil {
+		return err
+	}
+
+	if order.WeChatTradeNo == weChatTradeNo {
+		return nil
+	}
+	if strings.TrimSpace(order.WeChatTradeNo) != "" && order.WeChatTradeNo != weChatTradeNo {
+		return errors.New("wechat transaction id mismatch")
+	}
+	return DB.Model(&SubscriptionOrder{}).Where("id = ?", order.Id).Update("wechat_trade_no", weChatTradeNo).Error
 }
 
 // User subscription instance

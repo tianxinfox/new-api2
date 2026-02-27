@@ -114,6 +114,7 @@ subscription.invalid_user_id: "無效的使用者ID"
 
 # Payment messages
 payment.not_configured: "當前管理員未設定支付資訊"
+payment.wechat_not_configured: "微信支付未設定"
 payment.method_not_exists: "不存在此支付方式"
 payment.callback_error: "回調位址設定錯誤"
 payment.create_failed: "建立訂單失敗"

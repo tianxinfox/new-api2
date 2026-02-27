@@ -113,6 +113,7 @@ subscription.invalid_user_id: "Invalid user ID"
 
 # Payment messages
 payment.not_configured: "Payment information has not been configured by administrator"
+payment.wechat_not_configured: "WeChat Pay is not configured"
 payment.method_not_exists: "Payment method does not exist"
 payment.callback_error: "Callback URL configuration error"
 payment.create_failed: "Failed to create order"

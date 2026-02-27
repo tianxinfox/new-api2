@@ -17,12 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Badge,
   Button,
   Card,
   Divider,
+  Modal,
   Select,
   Skeleton,
   Space,
@@ -30,6 +31,7 @@ import {
   Tooltip,
   Typography,
 } from '@douyinfe/semi-ui';
+import { QRCodeSVG } from 'qrcode.react';
 import { API, showError, showSuccess, renderQuota } from '../../helpers';
 import { getCurrencyConfig } from '../../helpers/render';
 import { RefreshCw, Sparkles } from 'lucide-react';
@@ -38,13 +40,15 @@ import {
   formatSubscriptionDuration,
   formatSubscriptionResetPeriod,
 } from '../../helpers/subscriptionFormat';
+import WeChatIcon from '../common/logo/WeChatIcon';
 
 const { Text } = Typography;
+const WECHAT_PAY_POLLING_TIMEOUT_MS = 10 * 60 * 1000;
 
 // 过滤易支付方式
 function getEpayMethods(payMethods = []) {
   return (payMethods || []).filter(
-    (m) => m?.type && m.type !== 'stripe' && m.type !== 'creem',
+    (m) => m?.type && m.type !== 'stripe' && m.type !== 'creem' && m.type !== 'wechat',
   );
 }
 
@@ -76,6 +80,7 @@ const SubscriptionPlansCard = ({
   payMethods = [],
   enableOnlineTopUp = false,
   enableStripeTopUp = false,
+  enableWeChatTopUp = false,
   enableCreemTopUp = false,
   billingPreference,
   onChangeBillingPreference,
@@ -89,6 +94,10 @@ const SubscriptionPlansCard = ({
   const [paying, setPaying] = useState(false);
   const [selectedEpayMethod, setSelectedEpayMethod] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [wechatPayOpen, setWechatPayOpen] = useState(false);
+  const [wechatPayCodeUrl, setWechatPayCodeUrl] = useState('');
+  const [wechatPayTradeNo, setWechatPayTradeNo] = useState('');
+  const wechatPayPollingRef = useRef(null);
 
   const epayMethods = useMemo(() => getEpayMethods(payMethods), [payMethods]);
 
@@ -169,6 +178,32 @@ const SubscriptionPlansCard = ({
     }
   };
 
+  const payWeChat = async () => {
+    setPaying(true);
+    try {
+      const res = await API.post('/api/subscription/wechat/pay', {
+        plan_id: selectedPlan.plan.id,
+      });
+      if (res.data?.message === 'success') {
+        setWechatPayCodeUrl(res.data.data?.code_url || '');
+        setWechatPayTradeNo(res.data.data?.trade_no || '');
+        setWechatPayOpen(true);
+        showSuccess(t('Payment initiated'));
+        closeBuy();
+      } else {
+        const errorMsg =
+          typeof res.data?.data === 'string'
+            ? res.data.data
+            : res.data?.message || t('Payment failed');
+        showError(errorMsg);
+      }
+    } catch (e) {
+      showError(t('Payment request failed'));
+    } finally {
+      setPaying(false);
+    }
+  };
+
   const payEpay = async () => {
     if (!selectedEpayMethod) {
       showError(t('请选择支付方式'));
@@ -182,7 +217,7 @@ const SubscriptionPlansCard = ({
       });
       if (res.data?.message === 'success') {
         submitEpayForm({ url: res.data.url, params: res.data.data });
-        showSuccess(t('已发起支付'));
+        showSuccess(t('Payment initiated'));
         closeBuy();
       } else {
         const errorMsg =
@@ -197,6 +232,71 @@ const SubscriptionPlansCard = ({
       setPaying(false);
     }
   };
+
+  const querySubscriptionTradeStatus = async (tradeNo) => {
+    if (!tradeNo) return '';
+    const res = await API.get(
+      `/api/user/topup/self?p=1&page_size=1&keyword=${encodeURIComponent(tradeNo)}`,
+    );
+    if (!res?.data?.success) return '';
+    const items = res.data?.data?.items || [];
+    const target = items.find((item) => item?.trade_no === tradeNo);
+    return target?.status || '';
+  };
+
+  useEffect(() => {
+    const clearPolling = () => {
+      if (wechatPayPollingRef.current) {
+        clearInterval(wechatPayPollingRef.current);
+        wechatPayPollingRef.current = null;
+      }
+    };
+
+    if (!wechatPayOpen || !wechatPayTradeNo) {
+      clearPolling();
+      return () => clearPolling();
+    }
+
+    let stopped = false;
+    let timeoutRef = null;
+    const pollOnce = async () => {
+      if (stopped) return;
+      try {
+        const status = await querySubscriptionTradeStatus(wechatPayTradeNo);
+        if (status === 'success') {
+          clearPolling();
+          if (timeoutRef) {
+            clearTimeout(timeoutRef);
+            timeoutRef = null;
+          }
+          if (stopped) return;
+          setWechatPayOpen(false);
+          setWechatPayCodeUrl('');
+          setWechatPayTradeNo('');
+          showSuccess(t('Payment successful'));
+          await reloadSubscriptionSelf?.();
+        }
+      } catch (e) {
+        // ignore polling errors
+      }
+    };
+
+    pollOnce();
+    wechatPayPollingRef.current = setInterval(pollOnce, 2000);
+    timeoutRef = setTimeout(() => {
+      clearPolling();
+      if (stopped) return;
+      showError(t('Payment status polling timed out, please refresh manually.'));
+    }, WECHAT_PAY_POLLING_TIMEOUT_MS);
+
+    return () => {
+      stopped = true;
+      if (timeoutRef) {
+        clearTimeout(timeoutRef);
+      }
+      clearPolling();
+    };
+  }, [wechatPayOpen, wechatPayTradeNo, reloadSubscriptionSelf, t]);
 
   // 当前订阅信息 - 支持多个订阅
   const hasActiveSubscription = activeSubscriptions.length > 0;
@@ -664,6 +764,7 @@ const SubscriptionPlansCard = ({
         epayMethods={epayMethods}
         enableOnlineTopUp={enableOnlineTopUp}
         enableStripeTopUp={enableStripeTopUp}
+        enableWeChatTopUp={enableWeChatTopUp}
         enableCreemTopUp={enableCreemTopUp}
         purchaseLimitInfo={
           selectedPlan?.plan?.id
@@ -674,9 +775,68 @@ const SubscriptionPlansCard = ({
             : null
         }
         onPayStripe={payStripe}
+        onPayWeChat={payWeChat}
         onPayCreem={payCreem}
         onPayEpay={payEpay}
       />
+      <Modal
+        title={null}
+        visible={wechatPayOpen}
+        onCancel={() => setWechatPayOpen(false)}
+        footer={null}
+        centered
+        size='small'
+        bodyStyle={{ padding: 0 }}
+      >
+        <div className='flex flex-col items-center py-8 px-6'>
+          {/* WeChat Header */}
+          <div className='flex items-center gap-3 mb-6'>
+            <div className='w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center shadow-lg'>
+              <WeChatIcon />
+            </div>
+            <div>
+              <h3 className='text-lg font-semibold text-gray-800'>{t('WeChat Pay')}</h3>
+              <p className='text-xs text-gray-500'>{t('Scan with WeChat to complete payment')}</p>
+            </div>
+          </div>
+
+          {/* QR Code Container */}
+          <div className='relative mb-6'>
+            <div className='absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl blur-xl opacity-60'></div>
+            <div className='relative bg-white p-6 rounded-2xl shadow-xl border-2 border-green-100'>
+              {wechatPayCodeUrl ? (
+                <QRCodeSVG
+                  value={wechatPayCodeUrl}
+                  size={240}
+                  level="H"
+                  includeMargin={true}
+                />
+              ) : (
+                <div className='w-60 h-60 flex items-center justify-center'>
+                  <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-green-500'></div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Order Info */}
+          {wechatPayTradeNo && (
+            <div className='w-full bg-gray-50 rounded-lg p-3 mb-4'>
+              <p className='text-xs text-gray-500 text-center'>
+                {t('Order ID')}: <span className='font-mono text-gray-700'>{wechatPayTradeNo}</span>
+              </p>
+            </div>
+          )}
+
+          {/* Instructions */}
+          <div className='flex items-start gap-2 text-xs text-gray-600 bg-green-50 rounded-lg p-3 w-full'>
+            <svg className='w-4 h-4 text-green-600 mt-0.5 flex-shrink-0' fill='currentColor' viewBox='0 0 20 20'>
+              <path fillRule='evenodd' d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z' clipRule='evenodd' />
+            </svg>
+            <span>{t('Open WeChat and scan the QR code to pay. The page will automatically update after successful payment.')}</span>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 };

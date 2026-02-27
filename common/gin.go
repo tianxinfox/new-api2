@@ -192,6 +192,24 @@ func ApiErrorMsg(c *gin.Context, msg string) {
 	})
 }
 
+// ApiErrorMsgLegacy keeps backward-compatible response shape:
+// {"message":"error","data":"..."}.
+func ApiErrorMsgLegacy(c *gin.Context, msg string) {
+	c.JSON(http.StatusOK, gin.H{
+		"message": "error",
+		"data":    msg,
+	})
+}
+
+// ApiSuccessLegacy keeps backward-compatible response shape:
+// {"message":"success","data":...}.
+func ApiSuccessLegacy(c *gin.Context, data any) {
+	c.JSON(http.StatusOK, gin.H{
+		"message": "success",
+		"data":    data,
+	})
+}
+
 func ApiSuccess(c *gin.Context, data any) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

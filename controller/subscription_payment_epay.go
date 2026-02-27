@@ -35,7 +35,7 @@ func SubscriptionRequestEpay(c *gin.Context) {
 		return
 	}
 	if !plan.Enabled {
-		common.ApiErrorMsg(c, "套餐未启用")
+		common.ApiErrorI18n(c, "subscription.not_enabled")
 		return
 	}
 	if plan.PriceAmount < 0.01 {

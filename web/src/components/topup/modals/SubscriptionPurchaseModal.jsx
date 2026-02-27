@@ -29,7 +29,7 @@ import {
   Tooltip,
 } from '@douyinfe/semi-ui';
 import { Crown, CalendarClock, Package } from 'lucide-react';
-import { SiStripe } from 'react-icons/si';
+import { SiStripe, SiWechat } from 'react-icons/si';
 import { IconCreditCard } from '@douyinfe/semi-icons';
 import { renderQuota } from '../../../helpers';
 import { getCurrencyConfig } from '../../../helpers/render';
@@ -51,9 +51,11 @@ const SubscriptionPurchaseModal = ({
   epayMethods = [],
   enableOnlineTopUp = false,
   enableStripeTopUp = false,
+  enableWeChatTopUp = false,
   enableCreemTopUp = false,
   purchaseLimitInfo = null,
   onPayStripe,
+  onPayWeChat,
   onPayCreem,
   onPayEpay,
 }) => {
@@ -67,9 +69,10 @@ const SubscriptionPurchaseModal = ({
   );
   // 只有当管理员开启支付网关 AND 套餐配置了对应的支付ID时才显示
   const hasStripe = enableStripeTopUp && !!plan?.stripe_price_id;
+  const hasWeChat = enableWeChatTopUp;
   const hasCreem = enableCreemTopUp && !!plan?.creem_product_id;
   const hasEpay = enableOnlineTopUp && epayMethods.length > 0;
-  const hasAnyPayment = hasStripe || hasCreem || hasEpay;
+  const hasAnyPayment = hasStripe || hasWeChat || hasCreem || hasEpay;
   const purchaseLimit = Number(purchaseLimitInfo?.limit || 0);
   const purchaseCount = Number(purchaseLimitInfo?.count || 0);
   const purchaseLimitReached =
@@ -186,7 +189,7 @@ const SubscriptionPurchaseModal = ({
               </Text>
 
               {/* Stripe / Creem */}
-              {(hasStripe || hasCreem) && (
+              {(hasStripe || hasWeChat || hasCreem) && (
                 <div className='flex gap-2'>
                   {hasStripe && (
                     <Button
@@ -198,6 +201,18 @@ const SubscriptionPurchaseModal = ({
                       disabled={purchaseLimitReached}
                     >
                       Stripe
+                    </Button>
+                  )}
+                  {hasWeChat && (
+                    <Button
+                      theme='light'
+                      className='flex-1'
+                      icon={<SiWechat size={14} color='#07C160' />}
+                      onClick={onPayWeChat}
+                      loading={paying}
+                      disabled={purchaseLimitReached}
+                    >
+                      {t('微信支付')}
                     </Button>
                   )}
                   {hasCreem && (

@@ -89,6 +89,12 @@ func InitOptionMap() {
 	common.OptionMap["CreemProducts"] = setting.CreemProducts
 	common.OptionMap["CreemTestMode"] = strconv.FormatBool(setting.CreemTestMode)
 	common.OptionMap["CreemWebhookSecret"] = setting.CreemWebhookSecret
+	common.OptionMap["WeChatPayEnabled"] = strconv.FormatBool(setting.WeChatPayEnabled)
+	common.OptionMap["WeChatPayMchID"] = setting.WeChatPayMchID
+	common.OptionMap["WeChatPayAppID"] = setting.WeChatPayAppID
+	common.OptionMap["WeChatPayAPIv3Key"] = setting.WeChatPayAPIv3Key
+	common.OptionMap["WeChatPayMchSerial"] = setting.WeChatPayMchSerial
+	common.OptionMap["WeChatPayPrivateKey"] = setting.WeChatPayPrivateKey
 	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
 	common.OptionMap["Chats"] = setting.Chats2JsonString()
 	common.OptionMap["AutoGroups"] = setting.AutoGroups2JsonString()
@@ -358,6 +364,18 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.CreemTestMode = value == "true"
 	case "CreemWebhookSecret":
 		setting.CreemWebhookSecret = value
+	case "WeChatPayEnabled":
+		setting.WeChatPayEnabled = value == "true"
+	case "WeChatPayMchID":
+		setting.WeChatPayMchID = value
+	case "WeChatPayAppID":
+		setting.WeChatPayAppID = value
+	case "WeChatPayAPIv3Key":
+		setting.WeChatPayAPIv3Key = value
+	case "WeChatPayMchSerial":
+		setting.WeChatPayMchSerial = value
+	case "WeChatPayPrivateKey":
+		setting.WeChatPayPrivateKey = value
 	case "TopupGroupRatio":
 		err = common.UpdateTopupGroupRatioByJSONString(value)
 	case "GitHubClientId":

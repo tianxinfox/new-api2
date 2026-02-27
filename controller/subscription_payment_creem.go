@@ -25,13 +25,13 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 	bodyBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		log.Printf("read subscription creem pay req body err: %v", err)
-		c.JSON(200, gin.H{"message": "error", "data": "read query error"})
+		common.ApiErrorMsgLegacy(c, "read query error")
 		return
 	}
 	c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
-		c.JSON(200, gin.H{"message": "error", "data": "参数错误"})
+		common.ApiErrorMsgLegacy(c, "invalid parameters")
 		return
 	}
 
@@ -41,7 +41,7 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 		return
 	}
 	if !plan.Enabled {
-		common.ApiErrorMsg(c, "套餐未启用")
+		common.ApiErrorI18n(c, "subscription.not_enabled")
 		return
 	}
 	if plan.CreemProductId == "" {
@@ -90,7 +90,7 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 		Status:        common.TopUpStatusPending,
 	}
 	if err := order.Insert(); err != nil {
-		c.JSON(200, gin.H{"message": "error", "data": "创建订单失败"})
+		common.ApiErrorMsgLegacy(c, "failed to create order")
 		return
 	}
 
@@ -115,7 +115,7 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 	checkoutUrl, err := genCreemLink(referenceId, product, user.Email, user.Username)
 	if err != nil {
 		log.Printf("获取Creem支付链接失败: %v", err)
-		c.JSON(200, gin.H{"message": "error", "data": "拉起支付失败"})
+		common.ApiErrorMsgLegacy(c, "failed to initiate payment")
 		return
 	}
 

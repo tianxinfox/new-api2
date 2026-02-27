@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -23,12 +24,10 @@ import (
 )
 
 func GetTopUpInfo(c *gin.Context) {
-	// 获取支付方式
+	// Get payment method configuration.
 	payMethods := operation_setting.PayMethods
-
-	// 如果启用了 Stripe 支付，添加到支付方法列表
+	// If Stripe is enabled and missing from the list, append Stripe.
 	if setting.StripeApiSecret != "" && setting.StripeWebhookSecret != "" && setting.StripePriceId != "" {
-		// 检查是否已经包含 Stripe
 		hasStripe := false
 		for _, method := range payMethods {
 			if method["type"] == "stripe" {
@@ -47,10 +46,28 @@ func GetTopUpInfo(c *gin.Context) {
 			payMethods = append(payMethods, stripeMethod)
 		}
 	}
+	if IsWeChatPayConfigured() {
+		hasWeChat := false
+		for _, method := range payMethods {
+			if method["type"] == PaymentMethodWeChat {
+				hasWeChat = true
+				break
+			}
+		}
+		if !hasWeChat {
+			payMethods = append(payMethods, map[string]string{
+				"name":      "WeChat Pay",
+				"type":      PaymentMethodWeChat,
+				"color":     "rgba(var(--semi-green-5), 1)",
+				"min_topup": strconv.Itoa(operation_setting.MinTopUp),
+			})
+		}
+	}
 
 	data := gin.H{
 		"enable_online_topup": operation_setting.PayAddress != "" && operation_setting.EpayId != "" && operation_setting.EpayKey != "",
 		"enable_stripe_topup": setting.StripeApiSecret != "" && setting.StripeWebhookSecret != "" && setting.StripePriceId != "",
+		"enable_wechat_topup": IsWeChatPayConfigured(),
 		"enable_creem_topup":  setting.CreemApiKey != "" && setting.CreemProducts != "[]",
 		"creem_products":      setting.CreemProducts,
 		"pay_methods":         payMethods,
@@ -87,8 +104,7 @@ func GetEpayClient() *epay.Client {
 
 func getPayMoney(amount int64, group string) float64 {
 	dAmount := decimal.NewFromInt(amount)
-	// 充值金额以“展示类型”为准：
-	// - USD/CNY: 前端传 amount 为金额单位；TOKENS: 前端传 tokens，需要换成 USD 金额
+	// Amount follows the configured quota display type.
 	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
 		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
 		dAmount = dAmount.Div(dQuotaPerUnit)
@@ -129,28 +145,28 @@ func RequestEpay(c *gin.Context) {
 	var req EpayRequest
 	err := c.ShouldBindJSON(&req)
 	if err != nil {
-		c.JSON(200, gin.H{"message": "error", "data": "参数错误"})
+		common.ApiErrorMsgLegacy(c, "invalid parameters")
 		return
 	}
 	if req.Amount < getMinTopup() {
-		c.JSON(200, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", getMinTopup())})
+		common.ApiErrorMsgLegacy(c, fmt.Sprintf("top up amount cannot be less than %d", getMinTopup()))
 		return
 	}
 
 	id := c.GetInt("id")
 	group, err := model.GetUserGroup(id, true)
 	if err != nil {
-		c.JSON(200, gin.H{"message": "error", "data": "获取用户分组失败"})
+		common.ApiErrorMsgLegacy(c, "failed to get user group")
 		return
 	}
 	payMoney := getPayMoney(req.Amount, group)
 	if payMoney < 0.01 {
-		c.JSON(200, gin.H{"message": "error", "data": "充值金额过低"})
+		common.ApiErrorMsgLegacy(c, "top up amount is too low")
 		return
 	}
 
 	if !operation_setting.ContainsPayMethod(req.PaymentMethod) {
-		c.JSON(200, gin.H{"message": "error", "data": "支付方式不存在"})
+		common.ApiErrorMsgLegacy(c, "payment method not found")
 		return
 	}
 
@@ -161,7 +177,7 @@ func RequestEpay(c *gin.Context) {
 	tradeNo = fmt.Sprintf("USR%dNO%s", id, tradeNo)
 	client := GetEpayClient()
 	if client == nil {
-		c.JSON(200, gin.H{"message": "error", "data": "当前管理员未配置支付信息"})
+		common.ApiErrorMsgLegacy(c, "payment is not configured")
 		return
 	}
 	uri, params, err := client.Purchase(&epay.PurchaseArgs{
@@ -174,7 +190,7 @@ func RequestEpay(c *gin.Context) {
 		ReturnUrl:      returnUrl,
 	})
 	if err != nil {
-		c.JSON(200, gin.H{"message": "error", "data": "拉起支付失败"})
+		common.ApiErrorMsgLegacy(c, "failed to initiate payment")
 		return
 	}
 	amount := req.Amount
@@ -194,7 +210,7 @@ func RequestEpay(c *gin.Context) {
 	}
 	err = topUp.Insert()
 	if err != nil {
-		c.JSON(200, gin.H{"message": "error", "data": "创建订单失败"})
+		common.ApiErrorMsgLegacy(c, "failed to create order")
 		return
 	}
 	c.JSON(200, gin.H{"message": "success", "data": params, "url": uri})
@@ -202,38 +218,68 @@ func RequestEpay(c *gin.Context) {
 
 // tradeNo lock
 var orderLocks sync.Map
-var createLock sync.Mutex
 
-// LockOrder 尝试对给定订单号加锁
-func LockOrder(tradeNo string) {
-	lock, ok := orderLocks.Load(tradeNo)
-	if !ok {
-		createLock.Lock()
-		defer createLock.Unlock()
-		lock, ok = orderLocks.Load(tradeNo)
-		if !ok {
-			lock = new(sync.Mutex)
-			orderLocks.Store(tradeNo, lock)
-		}
-	}
-	lock.(*sync.Mutex).Lock()
+const orderLockCleanupDelay = time.Minute
+
+type orderLock struct {
+	mu   sync.Mutex
+	refs atomic.Int64
 }
 
-// UnlockOrder 释放给定订单号的锁
-func UnlockOrder(tradeNo string) {
-	lock, ok := orderLocks.Load(tradeNo)
-	if ok {
-		lock.(*sync.Mutex).Unlock()
+// LockOrder tries to lock a specific trade number.
+func LockOrder(tradeNo string) {
+	for {
+		lockAny, _ := orderLocks.LoadOrStore(tradeNo, &orderLock{})
+		lock := lockAny.(*orderLock)
+		refs := lock.refs.Load()
+		// refs < 0 means this lock is being cleaned up, retry with a fresh lock.
+		if refs < 0 {
+			orderLocks.CompareAndDelete(tradeNo, lock)
+			continue
+		}
+		if lock.refs.CompareAndSwap(refs, refs+1) {
+			lock.mu.Lock()
+			return
+		}
 	}
+}
+
+// UnlockOrder releases the lock for a trade number and schedules cleanup.
+func UnlockOrder(tradeNo string) {
+	lockAny, ok := orderLocks.Load(tradeNo)
+	if !ok {
+		return
+	}
+
+	lock := lockAny.(*orderLock)
+	lock.mu.Unlock()
+
+	if lock.refs.Add(-1) != 0 {
+		return
+	}
+
+	time.AfterFunc(orderLockCleanupDelay, func() {
+		current, ok := orderLocks.Load(tradeNo)
+		if !ok {
+			return
+		}
+		currentLock := current.(*orderLock)
+		// Move refs 0 -> -1 atomically to prevent a new request from reviving
+		// this lock between the zero check and map deletion.
+		if !currentLock.refs.CompareAndSwap(0, -1) {
+			return
+		}
+		orderLocks.CompareAndDelete(tradeNo, current)
+	})
 }
 
 func EpayNotify(c *gin.Context) {
 	var params map[string]string
 
 	if c.Request.Method == "POST" {
-		// POST 请求：从 POST body 解析参数
+		// POST request: parse parameters from POST body
 		if err := c.Request.ParseForm(); err != nil {
-			log.Println("易支付回调POST解析失败:", err)
+			log.Println("epay notify POST parse failed:", err)
 			_, _ = c.Writer.Write([]byte("fail"))
 			return
 		}
@@ -242,7 +288,7 @@ func EpayNotify(c *gin.Context) {
 			return r
 		}, map[string]string{})
 	} else {
-		// GET 请求：从 URL Query 解析参数
+		// GET request: parse parameters from URL query
 		params = lo.Reduce(lo.Keys(c.Request.URL.Query()), func(r map[string]string, t string, i int) map[string]string {
 			r[t] = c.Request.URL.Query().Get(t)
 			return r
@@ -250,16 +296,16 @@ func EpayNotify(c *gin.Context) {
 	}
 
 	if len(params) == 0 {
-		log.Println("易支付回调参数为空")
+		log.Println("epay notify params are empty")
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
 	client := GetEpayClient()
 	if client == nil {
-		log.Println("易支付回调失败 未找到配置信息")
+		log.Println("epay notify failed: client config not found")
 		_, err := c.Writer.Write([]byte("fail"))
 		if err != nil {
-			log.Println("易支付回调写入失败")
+			log.Println("epay notify write response failed")
 		}
 		return
 	}
@@ -267,14 +313,14 @@ func EpayNotify(c *gin.Context) {
 	if err == nil && verifyInfo.VerifyStatus {
 		_, err := c.Writer.Write([]byte("success"))
 		if err != nil {
-			log.Println("易支付回调写入失败")
+			log.Println("epay notify write response failed")
 		}
 	} else {
 		_, err := c.Writer.Write([]byte("fail"))
 		if err != nil {
-			log.Println("易支付回调写入失败")
+			log.Println("epay notify write response failed")
 		}
-		log.Println("易支付回调签名验证失败")
+		log.Println("epay notify signature verify failed")
 		return
 	}
 
@@ -284,14 +330,14 @@ func EpayNotify(c *gin.Context) {
 		defer UnlockOrder(verifyInfo.ServiceTradeNo)
 		topUp := model.GetTopUpByTradeNo(verifyInfo.ServiceTradeNo)
 		if topUp == nil {
-			log.Printf("易支付回调未找到订单: %v", verifyInfo)
+			log.Printf("epay notify: order not found, callback data: %v", verifyInfo)
 			return
 		}
 		if topUp.Status == "pending" {
 			topUp.Status = "success"
 			err := topUp.Update()
 			if err != nil {
-				log.Printf("易支付回调更新订单失败: %v", topUp)
+				log.Printf("epay notify: update top-up status failed: %v", topUp)
 				return
 			}
 			//user, _ := model.GetUserById(topUp.UserId, false)
@@ -301,14 +347,14 @@ func EpayNotify(c *gin.Context) {
 			quotaToAdd := int(dAmount.Mul(dQuotaPerUnit).IntPart())
 			err = model.IncreaseUserQuota(topUp.UserId, quotaToAdd, true)
 			if err != nil {
-				log.Printf("易支付回调更新用户失败: %v", topUp)
+				log.Printf("epay notify: increase user quota failed: %v", topUp)
 				return
 			}
-			log.Printf("易支付回调更新用户成功 %v", topUp)
-			model.RecordLog(topUp.UserId, model.LogTypeTopup, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%f", logger.LogQuota(quotaToAdd), topUp.Money))
+			log.Printf("epay notify: top-up success: %v", topUp)
+			model.RecordLog(topUp.UserId, model.LogTypeTopup, fmt.Sprintf("online top-up success, quota: %v, amount: %f", logger.LogQuota(quotaToAdd), topUp.Money))
 		}
 	} else {
-		log.Printf("易支付异常回调: %v", verifyInfo)
+		log.Printf("epay notify: trade status is not success: %v", verifyInfo)
 	}
 }
 
@@ -316,26 +362,26 @@ func RequestAmount(c *gin.Context) {
 	var req AmountRequest
 	err := c.ShouldBindJSON(&req)
 	if err != nil {
-		c.JSON(200, gin.H{"message": "error", "data": "参数错误"})
+		common.ApiErrorMsgLegacy(c, "invalid parameters")
 		return
 	}
 
 	if req.Amount < getMinTopup() {
-		c.JSON(200, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", getMinTopup())})
+		common.ApiErrorMsgLegacy(c, fmt.Sprintf("top up amount cannot be less than %d", getMinTopup()))
 		return
 	}
 	id := c.GetInt("id")
 	group, err := model.GetUserGroup(id, true)
 	if err != nil {
-		c.JSON(200, gin.H{"message": "error", "data": "获取用户分组失败"})
+		common.ApiErrorMsgLegacy(c, "failed to get user group")
 		return
 	}
 	payMoney := getPayMoney(req.Amount, group)
 	if payMoney <= 0.01 {
-		c.JSON(200, gin.H{"message": "error", "data": "充值金额过低"})
+		common.ApiErrorMsgLegacy(c, "top up amount is too low")
 		return
 	}
-	c.JSON(200, gin.H{"message": "success", "data": strconv.FormatFloat(payMoney, 'f', 2, 64)})
+	common.ApiSuccessLegacy(c, strconv.FormatFloat(payMoney, 'f', 2, 64))
 }
 
 func GetUserTopUps(c *gin.Context) {
@@ -363,7 +409,7 @@ func GetUserTopUps(c *gin.Context) {
 	common.ApiSuccess(c, pageInfo)
 }
 
-// GetAllTopUps 管理员获取全平台充值记录
+// GetAllTopUps returns top-up records across all users for admin.
 func GetAllTopUps(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	keyword := c.Query("keyword")
@@ -392,15 +438,15 @@ type AdminCompleteTopupRequest struct {
 	TradeNo string `json:"trade_no"`
 }
 
-// AdminCompleteTopUp 管理员补单接口
+// AdminCompleteTopUp allows admin to manually complete a top-up order.
 func AdminCompleteTopUp(c *gin.Context) {
 	var req AdminCompleteTopupRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.TradeNo == "" {
-		common.ApiErrorMsg(c, "参数错误")
+		common.ApiErrorMsg(c, "invalid parameters")
 		return
 	}
 
-	// 订单级互斥，防止并发补单
+	// Lock the order to avoid duplicate concurrent processing.
 	LockOrder(req.TradeNo)
 	defer UnlockOrder(req.TradeNo)
 

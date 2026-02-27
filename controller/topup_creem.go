@@ -67,12 +67,12 @@ type CreemAdaptor struct {
 
 func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
 	if req.PaymentMethod != PaymentMethodCreem {
-		c.JSON(200, gin.H{"message": "error", "data": "不支持的支付渠道"})
+		common.ApiErrorMsgLegacy(c, "unsupported payment method")
 		return
 	}
 
 	if req.ProductId == "" {
-		c.JSON(200, gin.H{"message": "error", "data": "请选择产品"})
+		common.ApiErrorMsgLegacy(c, "please select a product")
 		return
 	}
 
@@ -81,7 +81,7 @@ func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
 	err := json.Unmarshal([]byte(setting.CreemProducts), &products)
 	if err != nil {
 		log.Println("解析Creem产品列表失败", err)
-		c.JSON(200, gin.H{"message": "error", "data": "产品配置错误"})
+		common.ApiErrorMsgLegacy(c, "invalid product configuration")
 		return
 	}
 
@@ -95,7 +95,7 @@ func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
 	}
 
 	if selectedProduct == nil {
-		c.JSON(200, gin.H{"message": "error", "data": "产品不存在"})
+		common.ApiErrorMsgLegacy(c, "product not found")
 		return
 	}
 
@@ -118,7 +118,7 @@ func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
 	err = topUp.Insert()
 	if err != nil {
 		log.Printf("创建Creem订单失败: %v", err)
-		c.JSON(200, gin.H{"message": "error", "data": "创建订单失败"})
+		common.ApiErrorMsgLegacy(c, "failed to create order")
 		return
 	}
 
@@ -126,7 +126,7 @@ func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
 	checkoutUrl, err := genCreemLink(referenceId, selectedProduct, user.Email, user.Username)
 	if err != nil {
 		log.Printf("获取Creem支付链接失败: %v", err)
-		c.JSON(200, gin.H{"message": "error", "data": "拉起支付失败"})
+		common.ApiErrorMsgLegacy(c, "failed to initiate payment")
 		return
 	}
 
@@ -149,7 +149,7 @@ func RequestCreemPay(c *gin.Context) {
 	bodyBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		log.Printf("read creem pay req body err: %v", err)
-		c.JSON(200, gin.H{"message": "error", "data": "read query error"})
+		common.ApiErrorMsgLegacy(c, "read query error")
 		return
 	}
 
@@ -161,7 +161,7 @@ func RequestCreemPay(c *gin.Context) {
 
 	err = c.ShouldBindJSON(&req)
 	if err != nil {
-		c.JSON(200, gin.H{"message": "error", "data": "参数错误"})
+		common.ApiErrorMsgLegacy(c, "invalid parameters")
 		return
 	}
 	creemAdaptor.RequestPay(c, &req)

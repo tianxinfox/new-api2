@@ -43,7 +43,7 @@ const { Text } = Typography;
 // 状态映射配置
 const STATUS_CONFIG = {
   success: { type: 'success', key: '成功' },
-  pending: { type: 'warning', key: '待支付' },
+  pending: { type: 'warning', key: '处理中' },
   expired: { type: 'danger', key: '已过期' },
 };
 
@@ -51,8 +51,9 @@ const STATUS_CONFIG = {
 const PAYMENT_METHOD_MAP = {
   stripe: 'Stripe',
   creem: 'Creem',
-  alipay: '支付宝',
-  wxpay: '微信',
+  alipay: 'Alipay',
+  wxpay: 'WeChat',
+  wechat: 'WeChat Pay',
 };
 
 const TopupHistoryModal = ({ visible, onCancel, t }) => {
@@ -287,3 +288,5 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
 };
 
 export default TopupHistoryModal;
+
+
