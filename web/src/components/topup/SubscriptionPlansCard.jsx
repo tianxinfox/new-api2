@@ -308,6 +308,23 @@ const SubscriptionPlansCard = ({
           setWechatPayTradeNo('');
           showSuccess(t('Payment successful'));
           await reloadSubscriptionSelf?.();
+          return;
+        }
+        if (
+          status === 'unpaid' ||
+          status === 'failed' ||
+          status === 'expired'
+        ) {
+          clearPolling();
+          if (timeoutRef) {
+            clearTimeout(timeoutRef);
+            timeoutRef = null;
+          }
+          if (stopped) return;
+          setWechatPayOpen(false);
+          setWechatPayCodeUrl('');
+          setWechatPayTradeNo('');
+          showError(t(status === 'unpaid' ? '未支付' : '支付失败'));
         }
       } catch (e) {
         // ignore polling errors

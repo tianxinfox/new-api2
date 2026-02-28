@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/url"
@@ -421,6 +422,7 @@ func GetUserTopUps(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	refreshPendingTopUpStatuses(c.Request.Context(), topups)
 
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(topups)
@@ -446,10 +448,61 @@ func GetAllTopUps(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	refreshPendingTopUpStatuses(c.Request.Context(), topups)
 
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(topups)
 	common.ApiSuccess(c, pageInfo)
+}
+
+func refreshPendingTopUpStatuses(ctx context.Context, topups []*model.TopUp) {
+	const (
+		maxSyncItems   = 3
+		maxParallelism = 3
+		syncTimeout    = 2 * time.Second
+	)
+
+	candidates := make([]*model.TopUp, 0, maxSyncItems)
+	for _, topUp := range topups {
+		if len(candidates) >= maxSyncItems {
+			break
+		}
+		if topUp == nil || topUp.Status != common.TopUpStatusPending {
+			continue
+		}
+		if topUp.PaymentMethod != PaymentMethodWeChat && topUp.PaymentMethod != PaymentMethodAlipay {
+			continue
+		}
+		candidates = append(candidates, topUp)
+	}
+	if len(candidates) == 0 {
+		return
+	}
+
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, maxParallelism)
+	for _, topUp := range candidates {
+		wg.Add(1)
+		go func(item *model.TopUp) {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				return
+			}
+			defer func() { <-sem }()
+
+			syncCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), syncTimeout)
+			defer cancel()
+
+			LockOrder(item.TradeNo)
+			if err := syncTopUpStatusWithProvider(syncCtx, item); err != nil {
+				common.SysError(fmt.Sprintf("sync topup status with provider failed: trade_no=%s err=%v", item.TradeNo, err))
+			}
+			UnlockOrder(item.TradeNo)
+		}(topUp)
+	}
+	wg.Wait()
 }
 
 type AdminCompleteTopupRequest struct {

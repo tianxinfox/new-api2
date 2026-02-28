@@ -219,15 +219,48 @@ func (o *SubscriptionOrder) Update() error {
 	return DB.Save(o).Error
 }
 
-func GetSubscriptionOrderByTradeNo(tradeNo string) *SubscriptionOrder {
-	if tradeNo == "" {
+func CreateSubscriptionOrderWithTopUp(order *SubscriptionOrder) error {
+	if order == nil {
+		return errors.New("order is nil")
+	}
+	if strings.TrimSpace(order.TradeNo) == "" {
+		return errors.New("tradeNo is empty")
+	}
+	if order.CreateTime == 0 {
+		order.CreateTime = common.GetTimestamp()
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(order).Error; err != nil {
+			return err
+		}
+		topup := &TopUp{
+			UserId:        order.UserId,
+			Amount:        0,
+			Money:         order.Money,
+			TradeNo:       order.TradeNo,
+			PaymentMethod: order.PaymentMethod,
+			CreateTime:    order.CreateTime,
+			Status:        common.TopUpStatusPending,
+		}
+		if err := tx.Create(topup).Error; err != nil {
+			return err
+		}
 		return nil
+	})
+}
+
+func GetSubscriptionOrderByTradeNo(tradeNo string) (*SubscriptionOrder, error) {
+	if tradeNo == "" {
+		return nil, nil
 	}
 	var order SubscriptionOrder
 	if err := DB.Where("trade_no = ?", tradeNo).First(&order).Error; err != nil {
-		return nil
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
 	}
-	return &order
+	return &order, nil
 }
 
 func BindSubscriptionWeChatTradeNo(tradeNo string, weChatTradeNo string) error {
@@ -647,6 +680,40 @@ func ExpireSubscriptionOrder(tradeNo string) error {
 		}
 		order.Status = common.TopUpStatusExpired
 		order.CompleteTime = common.GetTimestamp()
+		return tx.Save(&order).Error
+	})
+}
+
+func UpdateSubscriptionOrderStatusIfPending(tradeNo string, status string, providerPayload string) error {
+	if strings.TrimSpace(tradeNo) == "" {
+		return errors.New("tradeNo is empty")
+	}
+	status = strings.TrimSpace(status)
+	if status == "" {
+		return errors.New("status is empty")
+	}
+	if status == common.TopUpStatusPending || status == common.TopUpStatusSuccess {
+		return errors.New("invalid status transition")
+	}
+
+	refCol := "`trade_no`"
+	if common.UsingPostgreSQL {
+		refCol = `"trade_no"`
+	}
+
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var order SubscriptionOrder
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", tradeNo).First(&order).Error; err != nil {
+			return err
+		}
+		if order.Status != common.TopUpStatusPending {
+			return nil
+		}
+		order.Status = status
+		order.CompleteTime = common.GetTimestamp()
+		if providerPayload != "" {
+			order.ProviderPayload = providerPayload
+		}
 		return tx.Save(&order).Error
 	})
 }

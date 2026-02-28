@@ -106,8 +106,8 @@ func SubscriptionRequestWeChatPay(c *gin.Context) {
 		CreateTime:    time.Now().Unix(),
 		Status:        common.TopUpStatusPending,
 	}
-	if err = order.Insert(); err != nil {
-		common.SysError(fmt.Sprintf("subscription wechat pay insert order failed: user_id=%d plan_id=%d out_trade_no=%s err=%v", userId, plan.Id, tradeNo, err))
+	if err = model.CreateSubscriptionOrderWithTopUp(order); err != nil {
+		common.SysError(fmt.Sprintf("subscription wechat pay create order with topup failed: user_id=%d plan_id=%d out_trade_no=%s err=%v", userId, plan.Id, tradeNo, err))
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "创建订单失败"})
 		return
 	}
@@ -135,7 +135,11 @@ func SubscriptionWeChatNotify(c *gin.Context) {
 	LockOrder(tradeNo)
 	defer UnlockOrder(tradeNo)
 
-	order := model.GetSubscriptionOrderByTradeNo(tradeNo)
+	order, err := model.GetSubscriptionOrderByTradeNo(tradeNo)
+	if err != nil {
+		writeWeChatNotifyFail(c, "query order failed")
+		return
+	}
 	if order == nil {
 		writeWeChatNotifyFail(c, "order not found")
 		return

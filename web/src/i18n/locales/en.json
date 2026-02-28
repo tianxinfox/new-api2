@@ -751,6 +751,7 @@
     "填写用户协议内容后，用户注册时将被要求勾选已阅读用户协议": "After filling in the user agreement content, users will be required to check that they have read the user agreement during registration",
     "填写隐私政策内容后，用户注册时将被要求勾选已阅读隐私政策": "After filling in the privacy policy content, users will be required to check that they have read the privacy policy during registration",
     "处理中": "Processing",
+    "未支付": "Unpaid",
     "备份支持": "Backup support",
     "备份状态": "Backup state",
     "备注": "Remark",

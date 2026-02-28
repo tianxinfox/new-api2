@@ -721,6 +721,21 @@ const TopUp = () => {
           showSuccess(t('Payment successful'));
           getUserQuota().then();
           getTopupInfo().then();
+          return;
+        }
+        if (
+          status === 'unpaid' ||
+          status === 'failed' ||
+          status === 'expired'
+        ) {
+          clearPolling();
+          if (timeoutRef) {
+            clearTimeout(timeoutRef);
+            timeoutRef = null;
+          }
+          if (stopped) return;
+          setWechatPayOpen(false);
+          showError(t(status === 'unpaid' ? '未支付' : '支付失败'));
         }
       } catch (e) {
         // ignore polling errors

@@ -110,8 +110,8 @@ func SubscriptionRequestAlipayPay(c *gin.Context) {
 		CreateTime:    time.Now().Unix(),
 		Status:        common.TopUpStatusPending,
 	}
-	if err = order.Insert(); err != nil {
-		common.SysError(fmt.Sprintf("subscription alipay insert order failed: user_id=%d plan_id=%d trade_no=%s err=%v", userID, plan.Id, tradeNo, err))
+	if err = model.CreateSubscriptionOrderWithTopUp(order); err != nil {
+		common.SysError(fmt.Sprintf("subscription alipay create order with topup failed: user_id=%d plan_id=%d trade_no=%s err=%v", userID, plan.Id, tradeNo, err))
 		common.ApiErrorMsg(c, "failed to create order")
 		return
 	}
@@ -156,7 +156,12 @@ func SubscriptionAlipayNotify(c *gin.Context) {
 	LockOrder(tradeNo)
 	defer UnlockOrder(tradeNo)
 
-	order := model.GetSubscriptionOrderByTradeNo(tradeNo)
+	order, err := model.GetSubscriptionOrderByTradeNo(tradeNo)
+	if err != nil {
+		common.SysError(fmt.Sprintf("subscription alipay notify query order failed: trade_no=%s err=%v", tradeNo, err))
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
 	if order == nil || order.PaymentMethod != PaymentMethodAlipay {
 		common.SysError(fmt.Sprintf("subscription alipay notify order invalid: trade_no=%s order_nil=%t", tradeNo, order == nil))
 		_, _ = c.Writer.Write([]byte("fail"))

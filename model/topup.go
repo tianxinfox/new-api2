@@ -383,6 +383,65 @@ func ManualCompleteTopUp(tradeNo string) error {
 	}
 	return nil
 }
+
+func UpdateTopUpStatusIfPending(tradeNo string, status string) error {
+	if strings.TrimSpace(tradeNo) == "" {
+		return errors.New("tradeNo is empty")
+	}
+	status = strings.TrimSpace(status)
+	if status == "" {
+		return errors.New("status is empty")
+	}
+	if status == common.TopUpStatusPending || status == common.TopUpStatusSuccess {
+		return errors.New("invalid status transition")
+	}
+	refCol := "`trade_no`"
+	if common.UsingPostgreSQL {
+		refCol = `"trade_no"`
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var topUp TopUp
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").
+			Where(refCol+" = ?", tradeNo).
+			First(&topUp).Error; err != nil {
+			return err
+		}
+		if topUp.Status != common.TopUpStatusPending {
+			return nil
+		}
+		topUp.Status = status
+		topUp.CompleteTime = common.GetTimestamp()
+		return tx.Save(&topUp).Error
+	})
+}
+
+// MarkTopUpSuccessIfPending marks top-up as success without crediting quota.
+// Used for subscription conflict scenarios where payment is successful but
+// subscription order cannot transition from pending.
+func MarkTopUpSuccessIfPending(tradeNo string) error {
+	if strings.TrimSpace(tradeNo) == "" {
+		return errors.New("tradeNo is empty")
+	}
+	refCol := "`trade_no`"
+	if common.UsingPostgreSQL {
+		refCol = `"trade_no"`
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var topUp TopUp
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").
+			Where(refCol+" = ?", tradeNo).
+			First(&topUp).Error; err != nil {
+			return err
+		}
+		if topUp.Status != common.TopUpStatusPending {
+			return nil
+		}
+		topUp.Status = common.TopUpStatusSuccess
+		topUp.CompleteTime = common.GetTimestamp()
+		return tx.Save(&topUp).Error
+	})
+}
+
 func RechargeCreem(referenceId string, customerEmail string, customerName string) (err error) {
 	if referenceId == "" {
 		return errors.New("未提供支付单号")

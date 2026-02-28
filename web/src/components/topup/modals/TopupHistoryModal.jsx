@@ -45,6 +45,8 @@ const STATUS_CONFIG = {
   success: { type: 'success', key: '成功' },
   pending: { type: 'warning', key: '处理中' },
   expired: { type: 'danger', key: '已过期' },
+  unpaid: { type: 'warning', key: '未支付' },
+  failed: { type: 'danger', key: '支付失败' },
 };
 
 // 支付方式映射
