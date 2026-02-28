@@ -2897,6 +2897,22 @@
     "请使用手机打开支付宝扫描二维码完成支付": "Please use your phone to open Alipay and scan the QR code to complete payment",
     "已完成支付": "I've completed payment",
     "支付状态尚未更新，请稍后再试": "Payment status has not updated yet. Please try again shortly.",
+    "总代理数": "Total Agents",
+    "总下级用户": "Total Sub-users",
+    "累计调用": "Total Requests",
+    "累计返佣": "Total Rebate",
+    "净贡献": "Net Contribution",
+    "最近活跃": "Last Active",
+    "充值榜": "Top-up Ranking",
+    "消费榜": "Consumption Ranking",
+    "调用榜": "Request Ranking",
+    "返佣榜": "Rebate Ranking",
+    "净贡献榜": "Net Contribution Ranking",
+    "代理总览": "Agent Overview",
+    "下级用户数": "Sub-user Count",
+    "全部代理累计数据与排行榜": "All-agent cumulative data and rankings",
+    "降序": "Descending",
+    "升序": "Ascending",
     "检测到密钥/证书为空输入，已自动跳过覆盖以保护现有配置。": "Detected empty key/certificate input; overwrite was skipped to protect existing configuration."
   }
 }

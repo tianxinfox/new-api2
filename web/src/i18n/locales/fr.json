@@ -2786,6 +2786,22 @@
     "请使用手机打开支付宝扫描二维码完成支付": "Veuillez ouvrir Alipay sur votre téléphone et scanner le QR code pour payer",
     "已完成支付": "J'ai terminé le paiement",
     "支付状态尚未更新，请稍后再试": "Le statut du paiement n'a pas encore été mis à jour. Veuillez réessayer dans un instant.",
+    "总代理数": "Nombre total d'agents",
+    "总下级用户": "Total des sous-utilisateurs",
+    "累计调用": "Appels cumulés",
+    "累计返佣": "Remises cumulées",
+    "净贡献": "Contribution nette",
+    "最近活跃": "Dernière activité",
+    "充值榜": "Classement des recharges",
+    "消费榜": "Classement de la consommation",
+    "调用榜": "Classement des appels",
+    "返佣榜": "Classement des remises",
+    "净贡献榜": "Classement de contribution nette",
+    "代理总览": "Vue d'ensemble des agents",
+    "下级用户数": "Nombre de sous-utilisateurs",
+    "全部代理累计数据与排行榜": "Données cumulées et classement de tous les agents",
+    "降序": "Décroissant",
+    "升序": "Croissant",
     "检测到密钥/证书为空输入，已自动跳过覆盖以保护现有配置。": "Entrée de clé/certificat vide détectée; l'écrasement a été ignoré pour protéger la configuration existante."
   }
 }

@@ -53,6 +53,7 @@ const routerMap = {
   agentUsers: '/console/agent/users',
   agentTopups: '/console/agent/topups',
   agentRebates: '/console/agent/rebates',
+  adminAgentOverview: '/console/admin/agents',
 };
 
 const SiderBar = ({ onNavigate = () => {} }) => {
@@ -71,6 +72,28 @@ const SiderBar = ({ onNavigate = () => {} }) => {
   const [openedKeys, setOpenedKeys] = useState([]);
   const location = useLocation();
   const [routerMapState, setRouterMapState] = useState(routerMap);
+  const [featureFlags, setFeatureFlags] = useState(() => ({
+    enableDataExport: localStorage.getItem('enable_data_export') === 'true',
+    enableDrawing: localStorage.getItem('enable_drawing') === 'true',
+    enableTask: localStorage.getItem('enable_task') === 'true',
+  }));
+
+  useEffect(() => {
+    const syncFeatureFlags = () => {
+      setFeatureFlags({
+        enableDataExport: localStorage.getItem('enable_data_export') === 'true',
+        enableDrawing: localStorage.getItem('enable_drawing') === 'true',
+        enableTask: localStorage.getItem('enable_task') === 'true',
+      });
+    };
+
+    window.addEventListener('storage', syncFeatureFlags);
+    window.addEventListener('status-data-updated', syncFeatureFlags);
+    return () => {
+      window.removeEventListener('storage', syncFeatureFlags);
+      window.removeEventListener('status-data-updated', syncFeatureFlags);
+    };
+  }, []);
 
   const workspaceItems = useMemo(() => {
     const items = [
@@ -78,10 +101,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('数据看板'),
         itemKey: 'detail',
         to: '/detail',
-        className:
-          localStorage.getItem('enable_data_export') === 'true'
-            ? ''
-            : 'tableHiddle',
+        className: featureFlags.enableDataExport ? '' : 'tableHiddle',
       },
       {
         text: t('令牌管理'),
@@ -97,17 +117,13 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('绘图日志'),
         itemKey: 'midjourney',
         to: '/midjourney',
-        className:
-          localStorage.getItem('enable_drawing') === 'true'
-            ? ''
-            : 'tableHiddle',
+        className: featureFlags.enableDrawing ? '' : 'tableHiddle',
       },
       {
         text: t('任务日志'),
         itemKey: 'task',
         to: '/task',
-        className:
-          localStorage.getItem('enable_task') === 'true' ? '' : 'tableHiddle',
+        className: featureFlags.enableTask ? '' : 'tableHiddle',
       },
     ];
 
@@ -119,9 +135,9 @@ const SiderBar = ({ onNavigate = () => {} }) => {
 
     return filteredItems;
   }, [
-    localStorage.getItem('enable_data_export'),
-    localStorage.getItem('enable_drawing'),
-    localStorage.getItem('enable_task'),
+    featureFlags.enableDataExport,
+    featureFlags.enableDrawing,
+    featureFlags.enableTask,
     t,
     isModuleVisible,
   ]);
@@ -187,6 +203,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
 
   const adminItems = useMemo(() => {
     const items = [
+      {
+        text: t('代理总览'),
+        itemKey: 'adminAgentOverview',
+        to: '/console/admin/agents',
+        className: isAdmin() ? '' : 'tableHiddle',
+      },
       {
         text: t('渠道管理'),
         itemKey: 'channel',

@@ -54,6 +54,11 @@ export function setStatusData(data) {
   } else {
     localStorage.removeItem('docs_link');
   }
+
+  // 同标签页同步：storage 事件不会在当前 tab 触发
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('status-data-updated'));
+  }
 }
 
 export function setUserData(data) {

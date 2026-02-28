@@ -24,6 +24,11 @@ import { API } from '../../helpers';
 // 创建一个全局事件系统来同步所有useSidebar实例
 const sidebarEventTarget = new EventTarget();
 const SIDEBAR_REFRESH_EVENT = 'sidebar-refresh';
+const USER_SELF_CACHE_TTL_MS = 10 * 1000;
+
+let userSelfCacheResponse = null;
+let userSelfCacheAt = 0;
+let userSelfInFlightPromise = null;
 
 export const DEFAULT_ADMIN_CONFIG = {
   chat: {
@@ -54,6 +59,7 @@ export const DEFAULT_ADMIN_CONFIG = {
   admin: {
     enabled: true,
     channel: true,
+    adminAgentOverview: true,
     models: true,
     deployment: true,
     redemption: true,
@@ -64,6 +70,49 @@ export const DEFAULT_ADMIN_CONFIG = {
 };
 
 const deepClone = (value) => JSON.parse(JSON.stringify(value));
+
+const buildDefaultUserConfigFromAdmin = (adminConfig) => {
+  const defaultUserConfig = {};
+  Object.keys(adminConfig).forEach((sectionKey) => {
+    if (adminConfig[sectionKey]?.enabled) {
+      defaultUserConfig[sectionKey] = { enabled: true };
+      Object.keys(adminConfig[sectionKey]).forEach((moduleKey) => {
+        if (moduleKey !== 'enabled' && adminConfig[sectionKey][moduleKey]) {
+          defaultUserConfig[sectionKey][moduleKey] = true;
+        }
+      });
+    }
+  });
+  return defaultUserConfig;
+};
+
+const fetchUserSelf = async ({ forceRefresh = false } = {}) => {
+  if (userSelfInFlightPromise) {
+    return userSelfInFlightPromise;
+  }
+
+  const now = Date.now();
+  const cacheValid =
+    !forceRefresh &&
+    userSelfCacheResponse &&
+    now - userSelfCacheAt < USER_SELF_CACHE_TTL_MS;
+
+  if (cacheValid) {
+    return userSelfCacheResponse;
+  }
+
+  userSelfInFlightPromise = API.get('/api/user/self')
+    .then((res) => {
+      userSelfCacheResponse = res;
+      userSelfCacheAt = Date.now();
+      return res;
+    })
+    .finally(() => {
+      userSelfInFlightPromise = null;
+    });
+
+  return userSelfInFlightPromise;
+};
 
 export const mergeAdminConfig = (savedConfig) => {
   const merged = deepClone(DEFAULT_ADMIN_CONFIG);
@@ -109,7 +158,7 @@ export const useSidebar = () => {
   }, [statusState?.status?.SidebarModulesAdmin]);
 
   // 加载用户配置的通用方法
-  const loadUserConfig = async ({ withLoading } = {}) => {
+  const loadUserConfig = async ({ withLoading, forceRefresh = false } = {}) => {
     const shouldShowLoader =
       typeof withLoading === 'boolean'
         ? withLoading
@@ -120,7 +169,7 @@ export const useSidebar = () => {
         setLoading(true);
       }
 
-      const res = await API.get('/api/user/self');
+      const res = await fetchUserSelf({ forceRefresh });
       if (res.data.success && res.data.data.sidebar_modules) {
         let config;
         // 检查sidebar_modules是字符串还是对象
@@ -131,39 +180,11 @@ export const useSidebar = () => {
         }
         setUserConfig(config);
       } else {
-        // 当用户没有配置时，生成一个基于管理员配置的默认用户配置
-        // 这样可以确保权限控制正确生效
-        const defaultUserConfig = {};
-        Object.keys(adminConfig).forEach((sectionKey) => {
-          if (adminConfig[sectionKey]?.enabled) {
-            defaultUserConfig[sectionKey] = { enabled: true };
-            // 为每个管理员允许的模块设置默认值为true
-            Object.keys(adminConfig[sectionKey]).forEach((moduleKey) => {
-              if (
-                moduleKey !== 'enabled' &&
-                adminConfig[sectionKey][moduleKey]
-              ) {
-                defaultUserConfig[sectionKey][moduleKey] = true;
-              }
-            });
-          }
-        });
-        setUserConfig(defaultUserConfig);
+        setUserConfig(buildDefaultUserConfigFromAdmin(adminConfig));
       }
     } catch (error) {
       // 出错时也生成默认配置，而不是设置为空对象
-      const defaultUserConfig = {};
-      Object.keys(adminConfig).forEach((sectionKey) => {
-        if (adminConfig[sectionKey]?.enabled) {
-          defaultUserConfig[sectionKey] = { enabled: true };
-          Object.keys(adminConfig[sectionKey]).forEach((moduleKey) => {
-            if (moduleKey !== 'enabled' && adminConfig[sectionKey][moduleKey]) {
-              defaultUserConfig[sectionKey][moduleKey] = true;
-            }
-          });
-        }
-      });
-      setUserConfig(defaultUserConfig);
+      setUserConfig(buildDefaultUserConfigFromAdmin(adminConfig));
     } finally {
       if (shouldShowLoader) {
         setLoading(false);
@@ -175,13 +196,17 @@ export const useSidebar = () => {
   // 刷新用户配置的方法（供外部调用）
   const refreshUserConfig = async () => {
     if (Object.keys(adminConfig).length > 0) {
-      await loadUserConfig({ withLoading: false });
+      await loadUserConfig({ withLoading: false, forceRefresh: true });
     }
 
     // 触发全局刷新事件，通知所有useSidebar实例更新
     sidebarEventTarget.dispatchEvent(
       new CustomEvent(SIDEBAR_REFRESH_EVENT, {
-        detail: { sourceId: instanceIdRef.current, skipLoader: true },
+        detail: {
+          sourceId: instanceIdRef.current,
+          skipLoader: true,
+          forceRefresh: true,
+        },
       }),
     );
   };
@@ -204,6 +229,7 @@ export const useSidebar = () => {
       if (Object.keys(adminConfig).length > 0) {
         loadUserConfig({
           withLoading: event?.detail?.skipLoader ? false : undefined,
+          forceRefresh: event?.detail?.forceRefresh === true,
         });
       }
     };

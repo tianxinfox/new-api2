@@ -3343,6 +3343,22 @@
     "请使用手机打开支付宝扫描二维码完成支付": "Vui lòng mở Alipay trên điện thoại và quét mã QR để hoàn tất thanh toán",
     "已完成支付": "Đã thanh toán",
     "支付状态尚未更新，请稍后再试": "Trạng thái thanh toán chưa cập nhật, vui lòng thử lại sau.",
+    "总代理数": "Tổng số đại lý",
+    "总下级用户": "Tổng số người dùng cấp dưới",
+    "累计调用": "Tổng số lượt gọi",
+    "累计返佣": "Tổng hoa hồng hoàn lại",
+    "净贡献": "Đóng góp ròng",
+    "最近活跃": "Hoạt động gần nhất",
+    "充值榜": "Bảng xếp hạng nạp tiền",
+    "消费榜": "Bảng xếp hạng tiêu thụ",
+    "调用榜": "Bảng xếp hạng lượt gọi",
+    "返佣榜": "Bảng xếp hạng hoàn hoa hồng",
+    "净贡献榜": "Bảng xếp hạng đóng góp ròng",
+    "代理总览": "Tổng quan đại lý",
+    "下级用户数": "Số người dùng cấp dưới",
+    "全部代理累计数据与排行榜": "Dữ liệu lũy kế và bảng xếp hạng toàn bộ đại lý",
+    "降序": "Giảm dần",
+    "升序": "Tăng dần",
     "检测到密钥/证书为空输入，已自动跳过覆盖以保护现有配置。": "Phát hiện nhập khóa/chứng chỉ trống; đã bỏ qua ghi đè để bảo vệ cấu hình hiện có."
   }
 }
