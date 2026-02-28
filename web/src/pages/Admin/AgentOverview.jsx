@@ -18,9 +18,9 @@ const { Text } = Typography;
 
 const sortOptions = [
   { label: 'ID', value: 'agent_id' },
-  { label: '累计充值', value: 'total_topup_amount' },
-  { label: '累计消费', value: 'total_consumption_quota' },
-  { label: '累计调用', value: 'total_request_count' },
+  { label: '下级累计充值', value: 'total_topup_amount' },
+  { label: '下级累计消费', value: 'total_consumption_quota' },
+  { label: '下级累计调用', value: 'total_request_count' },
   { label: '累计返佣', value: 'total_rebate_amount' },
   { label: '净贡献', value: 'net_contribution_amount' },
   { label: '最近活跃', value: 'last_active_at' },
@@ -236,17 +236,17 @@ const AgentOverview = () => {
       dataIndex: 'sub_user_count',
     },
     {
-      title: t('累计充值'),
+      title: t('下级累计充值'),
       dataIndex: 'total_topup_amount',
       render: (v) => `${currencySymbol}${Number(v || 0).toFixed(2)}`,
     },
     {
-      title: t('累计消费'),
+      title: t('下级累计消费'),
       dataIndex: 'total_consumption_quota',
       render: (v) => renderQuota(v || 0),
     },
     {
-      title: t('累计调用'),
+      title: t('下级累计调用'),
       dataIndex: 'total_request_count',
     },
     {
