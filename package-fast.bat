@@ -4,20 +4,12 @@ setlocal EnableExtensions EnableDelayedExpansion
 set "IMAGE_NAME=new-api"
 set "TAG=local"
 if not "%~1"=="" set "TAG=%~1"
-set "MODE=clean"
-if not "%~2"=="" set "MODE=%~2"
-
 set "IMAGE=%IMAGE_NAME%:%TAG%"
 set "TAR_NAME=%IMAGE_NAME%-%TAG%.tar"
 
 echo [1/4] Building image: %IMAGE%
-if /I "%MODE%"=="fast" (
-  echo [MODE] fast \(use docker cache\)
-  docker build -t %IMAGE% .
-) else (
-  echo [MODE] clean \(no cache\)
-  docker build --no-cache -t %IMAGE% .
-)
+echo [MODE] fast \(use docker cache\)
+docker build -t %IMAGE% .
 if errorlevel 1 (
   echo [ERROR] Docker build failed.
   exit /b 1
