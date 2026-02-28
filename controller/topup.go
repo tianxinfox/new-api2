@@ -49,7 +49,7 @@ func GetTopUpInfo(c *gin.Context) {
 	if IsWeChatPayConfigured() {
 		hasWeChat := false
 		for _, method := range payMethods {
-			if method["type"] == PaymentMethodWeChat {
+			if method["type"] == PaymentMethodWeChat || method["type"] == "wxpay" {
 				hasWeChat = true
 				break
 			}
@@ -63,11 +63,29 @@ func GetTopUpInfo(c *gin.Context) {
 			})
 		}
 	}
+	if IsAlipayConfigured() {
+		hasAlipay := false
+		for _, method := range payMethods {
+			if method["type"] == PaymentMethodAlipay {
+				hasAlipay = true
+				break
+			}
+		}
+		if !hasAlipay {
+			payMethods = append(payMethods, map[string]string{
+				"name":      "Alipay",
+				"type":      PaymentMethodAlipay,
+				"color":     "rgba(var(--semi-blue-5), 1)",
+				"min_topup": strconv.Itoa(operation_setting.MinTopUp),
+			})
+		}
+	}
 
 	data := gin.H{
 		"enable_online_topup": operation_setting.PayAddress != "" && operation_setting.EpayId != "" && operation_setting.EpayKey != "",
 		"enable_stripe_topup": setting.StripeApiSecret != "" && setting.StripeWebhookSecret != "" && setting.StripePriceId != "",
 		"enable_wechat_topup": IsWeChatPayConfigured(),
+		"enable_alipay_topup": IsAlipayConfigured(),
 		"enable_creem_topup":  setting.CreemApiKey != "" && setting.CreemProducts != "[]",
 		"creem_products":      setting.CreemProducts,
 		"pay_methods":         payMethods,

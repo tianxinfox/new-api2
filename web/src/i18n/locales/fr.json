@@ -2758,7 +2758,6 @@
     "选择日期": "Sélectionner la date",
     "默认今天": "Par défaut : aujourd'hui",
     "默认查询今天及昨天的数据": "Par défaut : données d'aujourd'hui et d'hier",
-    "暂无数据": "Aucune donnée",
     "用户ID/用户名/显示名/邮箱": "ID / Nom / Nom affiché / Email",
     "用户ID/用户名/显示名": "ID / Nom / Nom affiché",
     "第 {{start}}-{{end}} 条，共 {{total}} 条": "{{start}}-{{end}} sur {{total}} éléments",
@@ -2766,6 +2765,11 @@
     "统计信息": "Statistiques",
     "激活状态": "État d'activation",
     "已激活": "Activé",
-    "未激活": "Non activé"
+    "未激活": "Non activé",
+    "支付链接不存在": "Lien de paiement introuvable",
+    "管理员未启用支付宝支付": "Le paiement Alipay n'est pas activé par l'administrateur",
+    "请选择支付方式": "Veuillez sélectionner un mode de paiement",
+    "管理员未启用微信支付": "Le paiement WeChat Pay n'est pas activé par l'administrateur"
   }
 }
+

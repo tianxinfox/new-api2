@@ -3314,17 +3314,19 @@
     "错误模型排行": "Xếp hạng lỗi mô hình",
     "使用量": "Lượng sử dụng",
     "错误次数": "Số lần lỗi",
-    "选择日期": "Chọn ngày",
     "默认今天": "Mặc định: Hôm nay",
     "默认查询今天及昨天的数据": "Mặc định: truy vấn dữ liệu hôm nay và hôm qua",
-    "暂无数据": "Không có dữ liệu",
     "用户ID/用户名/显示名/邮箱": "ID / Tên người dùng / Tên hiển thị / Email",
     "用户ID/用户名/显示名": "ID / Tên người dùng / Tên hiển thị",
     "第 {{start}}-{{end}} 条，共 {{total}} 条": "{{start}}-{{end}} trên {{total}} mục",
     "昵称": "Biệt danh",
-    "统计信息": "Thông tin thống kê",
     "激活状态": "Trạng thái kích hoạt",
     "已激活": "Đã kích hoạt",
-    "未激活": "Chưa kích hoạt"
+    "未激活": "Chưa kích hoạt",
+    "支付链接不存在": "Không tìm thấy liên kết thanh toán",
+    "管理员未启用支付宝支付": "Quản trị viên chưa bật thanh toán Alipay",
+    "请选择支付方式": "Vui lòng chọn phương thức thanh toán",
+    "管理员未启用微信支付": "Quản trị viên chưa bật thanh toán WeChat Pay"
   }
 }
+

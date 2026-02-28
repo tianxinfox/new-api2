@@ -95,6 +95,15 @@ func InitOptionMap() {
 	common.OptionMap["WeChatPayAPIv3Key"] = setting.WeChatPayAPIv3Key
 	common.OptionMap["WeChatPayMchSerial"] = setting.WeChatPayMchSerial
 	common.OptionMap["WeChatPayPrivateKey"] = setting.WeChatPayPrivateKey
+	common.OptionMap["AlipayEnabled"] = strconv.FormatBool(setting.AlipayEnabled)
+	common.OptionMap["AlipayAppID"] = setting.AlipayAppID
+	common.OptionMap["AlipayPrivateKey"] = setting.AlipayPrivateKey
+	common.OptionMap["AlipayPublicKey"] = setting.AlipayPublicKey
+	common.OptionMap["AlipayUseCertificateMode"] = strconv.FormatBool(setting.AlipayUseCertificateMode)
+	common.OptionMap["AlipayAppPublicCert"] = setting.AlipayAppPublicCert
+	common.OptionMap["AlipayAlipayPublicCert"] = setting.AlipayAlipayPublicCert
+	common.OptionMap["AlipayRootCert"] = setting.AlipayRootCert
+	common.OptionMap["AlipaySandbox"] = strconv.FormatBool(setting.AlipaySandbox)
 	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
 	common.OptionMap["Chats"] = setting.Chats2JsonString()
 	common.OptionMap["AutoGroups"] = setting.AutoGroups2JsonString()
@@ -376,6 +385,24 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.WeChatPayMchSerial = value
 	case "WeChatPayPrivateKey":
 		setting.WeChatPayPrivateKey = value
+	case "AlipayEnabled":
+		setting.AlipayEnabled = value == "true"
+	case "AlipayAppID":
+		setting.AlipayAppID = value
+	case "AlipayPrivateKey":
+		setting.AlipayPrivateKey = value
+	case "AlipayPublicKey":
+		setting.AlipayPublicKey = value
+	case "AlipayUseCertificateMode":
+		setting.AlipayUseCertificateMode = value == "true"
+	case "AlipayAppPublicCert":
+		setting.AlipayAppPublicCert = value
+	case "AlipayAlipayPublicCert":
+		setting.AlipayAlipayPublicCert = value
+	case "AlipayRootCert":
+		setting.AlipayRootCert = value
+	case "AlipaySandbox":
+		setting.AlipaySandbox = value == "true"
 	case "TopupGroupRatio":
 		err = common.UpdateTopupGroupRatioByJSONString(value)
 	case "GitHubClientId":

@@ -24,6 +24,7 @@ import SettingsPaymentGateway from '../../pages/Setting/Payment/SettingsPaymentG
 import SettingsPaymentGatewayStripe from '../../pages/Setting/Payment/SettingsPaymentGatewayStripe';
 import SettingsPaymentGatewayCreem from '../../pages/Setting/Payment/SettingsPaymentGatewayCreem';
 import SettingsPaymentGatewayWeChat from '../../pages/Setting/Payment/SettingsPaymentGatewayWeChat';
+import SettingsPaymentGatewayAlipay from '../../pages/Setting/Payment/SettingsPaymentGatewayAlipay';
 import { API, showError, toBoolean } from '../../helpers';
 import { useTranslation } from 'react-i18next';
 
@@ -55,6 +56,15 @@ const PaymentSetting = () => {
     WeChatPayAPIv3Key: '',
     WeChatPayMchSerial: '',
     WeChatPayPrivateKey: '',
+    AlipayEnabled: false,
+    AlipaySandbox: false,
+    AlipayUseCertificateMode: false,
+    AlipayAppID: '',
+    AlipayPrivateKey: '',
+    AlipayPublicKey: '',
+    AlipayAppPublicCert: '',
+    AlipayAlipayPublicCert: '',
+    AlipayRootCert: '',
   });
 
   let [loading, setLoading] = useState(false);
@@ -108,6 +118,10 @@ const PaymentSetting = () => {
           case 'StripeMinTopUp':
             newInputs[item.key] = parseFloat(item.value);
             break;
+          case 'AlipaySandbox':
+          case 'AlipayUseCertificateMode':
+            newInputs[item.key] = toBoolean(item.value);
+            break;
           default:
             if (item.key.endsWith('Enabled')) {
               newInputs[item.key] = toBoolean(item.value);
@@ -156,6 +170,9 @@ const PaymentSetting = () => {
         </Card>
         <Card style={{ marginTop: '10px' }}>
           <SettingsPaymentGatewayWeChat options={inputs} refresh={onRefresh} />
+        </Card>
+        <Card style={{ marginTop: '10px' }}>
+          <SettingsPaymentGatewayAlipay options={inputs} refresh={onRefresh} />
         </Card>
       </Spin>
     </>

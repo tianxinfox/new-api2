@@ -57,6 +57,7 @@ const RechargeCard = ({
   enableOnlineTopUp,
   enableStripeTopUp,
   enableWeChatTopUp,
+  enableAlipayTopUp,
   enableCreemTopUp,
   creemProducts,
   creemPreTopUp,
@@ -303,11 +304,18 @@ const RechargeCard = ({
                           {payMethods.map((payMethod) => {
                             const minTopupVal = Number(payMethod.min_topup) || 0;
                             const isStripe = payMethod.type === 'stripe';
-                            const isWeChat = payMethod.type === 'wechat';
+                            const isWeChat =
+                              payMethod.type === 'wechat' ||
+                              payMethod.type === 'wxpay';
+                            const isAlipay = payMethod.type === 'alipay';
                             const disabled =
-                              (!enableOnlineTopUp && !isStripe && !isWeChat) ||
+                              (!enableOnlineTopUp &&
+                                !isStripe &&
+                                !isWeChat &&
+                                !isAlipay) ||
                               (!enableStripeTopUp && isStripe) ||
                               (!enableWeChatTopUp && isWeChat) ||
+                              (!enableAlipayTopUp && isAlipay) ||
                               minTopupVal > Number(topUpCount || 0);
 
                             const buttonEl = (
@@ -663,3 +671,4 @@ const RechargeCard = ({
 };
 
 export default RechargeCard;
+

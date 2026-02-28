@@ -1302,7 +1302,7 @@
     "暂无差异化倍率显示": "No differential ratio display",
     "暂无常见问答": "No FAQ",
     "暂无成功模型": "No successful models",
-    "暂无数据": "No data",
+    "暂无数据": "No Data",
     "暂无数据，点击下方按钮添加键值对": "No data, click the button below to add key-value pairs",
     "暂无日志": "No logs",
     "暂无日志可下载": "No logs available to download",
@@ -2864,9 +2864,7 @@
     "选择日期": "Select Date",
     "默认今天": "Default: Today",
     "默认查询今天及昨天的数据": "Default: query today and yesterday's data",
-    "暂无数据": "No Data",
     "用户ID/用户名/显示名/邮箱": "User ID / Username / Display Name / Email",
-    "用户ID/用户名/显示名": "User ID / Username / Display Name",
     "用户ID/用户名/显示名": "User ID / Username / Display Name",
     "第 {{start}}-{{end}} 条，共 {{total}} 条": "{{start}}-{{end}} of {{total}} items",
     "代理区域": "Agent Section",
@@ -2877,6 +2875,11 @@
     "统计信息": "Statistics",
     "激活状态": "Activation Status",
     "已激活": "Active",
-    "未激活": "Inactive"
+    "未激活": "Inactive",
+    "支付链接不存在": "Payment link not found",
+    "管理员未启用支付宝支付": "Alipay is not enabled by admin",
+    "请选择支付方式": "Please select a payment method",
+    "管理员未启用微信支付": "WeChat Pay is not enabled by admin"
   }
 }
+

@@ -19,6 +19,7 @@ type TopUp struct {
 	Money         float64 `json:"money"`
 	TradeNo       string  `json:"trade_no" gorm:"unique;type:varchar(255);index"`
 	WeChatTradeNo string  `json:"wechat_trade_no" gorm:"type:varchar(64);default:'';index"`
+	AlipayTradeNo string  `json:"alipay_trade_no" gorm:"type:varchar(64);default:'';index"`
 	PaymentMethod string  `json:"payment_method" gorm:"type:varchar(50)"`
 	CreateTime    int64   `json:"create_time"`
 	CompleteTime  int64   `json:"complete_time"`
@@ -78,6 +79,29 @@ func BindTopUpWeChatTradeNo(tradeNo string, weChatTradeNo string) error {
 		return errors.New("wechat transaction id mismatch")
 	}
 	return DB.Model(&TopUp{}).Where("id = ?", topUp.Id).Update("wechat_trade_no", weChatTradeNo).Error
+}
+
+func BindTopUpAlipayTradeNo(tradeNo string, alipayTradeNo string) error {
+	if strings.TrimSpace(tradeNo) == "" {
+		return errors.New("tradeNo is empty")
+	}
+	alipayTradeNo = strings.TrimSpace(alipayTradeNo)
+	if alipayTradeNo == "" {
+		return errors.New("alipay transaction id is empty")
+	}
+
+	topUp := &TopUp{}
+	if err := DB.Select("id", "alipay_trade_no").Where("trade_no = ?", tradeNo).First(topUp).Error; err != nil {
+		return err
+	}
+
+	if topUp.AlipayTradeNo == alipayTradeNo {
+		return nil
+	}
+	if strings.TrimSpace(topUp.AlipayTradeNo) != "" && topUp.AlipayTradeNo != alipayTradeNo {
+		return errors.New("alipay transaction id mismatch")
+	}
+	return DB.Model(&TopUp{}).Where("id = ?", topUp.Id).Update("alipay_trade_no", alipayTradeNo).Error
 }
 
 func Recharge(referenceId string, customerId string) (err error) {

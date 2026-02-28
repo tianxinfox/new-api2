@@ -133,7 +133,12 @@ const SubscriptionPlansCard = ({
         plan_id: selectedPlan.plan.id,
       });
       if (res.data?.message === 'success') {
-        window.open(res.data.data?.pay_link, '_blank');
+        const payLink = res.data?.data?.pay_link;
+        if (!payLink) {
+          showError(t('支付链接不存在'));
+          return;
+        }
+        window.open(payLink, '_blank');
         showSuccess(t('已打开支付页面'));
         closeBuy();
       } else {
@@ -188,17 +193,17 @@ const SubscriptionPlansCard = ({
         setWechatPayCodeUrl(res.data.data?.code_url || '');
         setWechatPayTradeNo(res.data.data?.trade_no || '');
         setWechatPayOpen(true);
-        showSuccess(t('Payment initiated'));
+        showSuccess(t('已发起支付'));
         closeBuy();
       } else {
         const errorMsg =
           typeof res.data?.data === 'string'
             ? res.data.data
-            : res.data?.message || t('Payment failed');
+            : res.data?.message || t('支付失败');
         showError(errorMsg);
       }
     } catch (e) {
-      showError(t('Payment request failed'));
+      showError(t('支付请求失败'));
     } finally {
       setPaying(false);
     }
@@ -209,17 +214,42 @@ const SubscriptionPlansCard = ({
       showError(t('请选择支付方式'));
       return;
     }
+    let alipayWindow = null;
+    if (selectedEpayMethod === 'alipay') {
+      alipayWindow = window.open('about:blank', '_blank');
+    }
     setPaying(true);
     try {
-      const res = await API.post('/api/subscription/epay/pay', {
+      const endpoint =
+        selectedEpayMethod === 'alipay'
+          ? '/api/subscription/alipay/pay'
+          : '/api/subscription/epay/pay';
+      const res = await API.post(endpoint, {
         plan_id: selectedPlan.plan.id,
         payment_method: selectedEpayMethod,
       });
       if (res.data?.message === 'success') {
-        submitEpayForm({ url: res.data.url, params: res.data.data });
-        showSuccess(t('Payment initiated'));
+        if (selectedEpayMethod === 'alipay') {
+          const payLink = res.data?.data?.pay_link;
+          if (!payLink) {
+            if (alipayWindow) alipayWindow.close();
+            showError(t('支付失败'));
+            return;
+          }
+          if (alipayWindow) {
+            alipayWindow.location.href = payLink;
+          } else {
+            window.location.href = payLink;
+          }
+        } else {
+          submitEpayForm({ url: res.data.url, params: res.data.data });
+        }
+        showSuccess(t('已发起支付'));
         closeBuy();
       } else {
+        if (selectedEpayMethod === 'alipay' && alipayWindow) {
+          alipayWindow.close();
+        }
         const errorMsg =
           typeof res.data?.data === 'string'
             ? res.data.data
@@ -227,6 +257,9 @@ const SubscriptionPlansCard = ({
         showError(errorMsg);
       }
     } catch (e) {
+      if (selectedEpayMethod === 'alipay' && alipayWindow) {
+        alipayWindow.close();
+      }
       showError(t('支付请求失败'));
     } finally {
       setPaying(false);
@@ -842,3 +875,4 @@ const SubscriptionPlansCard = ({
 };
 
 export default SubscriptionPlansCard;
+
