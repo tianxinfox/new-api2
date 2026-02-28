@@ -1048,6 +1048,8 @@
     "快速选择": "Quick Select",
     "思考中...": "Thinking...",
     "思考内容转换": "Thinking content conversion",
+    "Markdown图片标准化": "Normalize Markdown images",
+    "将响应中的 Markdown 图片转换为标准 images JSON 格式": "Convert Markdown images in responses to standard images JSON format",
     "思考过程": "Thinking process",
     "思考适配 BudgetTokens 百分比": "Thinking adaptation BudgetTokens percentage",
     "思考预算占比": "Thinking budget ratio",

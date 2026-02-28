@@ -1042,6 +1042,8 @@
     "快速选择": "Quick Select",
     "思考中...": "思考中...",
     "思考内容转换": "思考プロセス変換",
+    "Markdown图片标准化": "Markdown画像の標準化",
+    "将响应中的 Markdown 图片转换为标准 images JSON 格式": "レスポンス内のMarkdown画像を標準のimages JSON形式に変換します",
     "思考过程": "思考プロセス",
     "思考适配 BudgetTokens 百分比": "思考モード：BudgetTokensの割合（%）",
     "思考预算占比": "思考予算の割合",

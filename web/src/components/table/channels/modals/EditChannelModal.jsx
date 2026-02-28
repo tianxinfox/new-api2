@@ -160,6 +160,7 @@ const EditChannelModal = (props) => {
     // 渠道额外设置的默认值
     force_format: false,
     thinking_to_content: false,
+    normalize_markdown_images: false,
     proxy: '',
     pass_through_body_enabled: false,
     system_prompt: '',
@@ -416,6 +417,7 @@ const EditChannelModal = (props) => {
   const [channelSettings, setChannelSettings] = useState({
     force_format: false,
     thinking_to_content: false,
+    normalize_markdown_images: false,
     proxy: '',
     pass_through_body_enabled: false,
     system_prompt: '',
@@ -627,6 +629,8 @@ const EditChannelModal = (props) => {
           data.force_format = parsedSettings.force_format || false;
           data.thinking_to_content =
             parsedSettings.thinking_to_content || false;
+          data.normalize_markdown_images =
+            parsedSettings.normalize_markdown_images || false;
           data.proxy = parsedSettings.proxy || '';
           data.pass_through_body_enabled =
             parsedSettings.pass_through_body_enabled || false;
@@ -637,6 +641,7 @@ const EditChannelModal = (props) => {
           console.error('解析渠道设置失败:', error);
           data.force_format = false;
           data.thinking_to_content = false;
+          data.normalize_markdown_images = false;
           data.proxy = '';
           data.pass_through_body_enabled = false;
           data.system_prompt = '';
@@ -645,6 +650,7 @@ const EditChannelModal = (props) => {
       } else {
         data.force_format = false;
         data.thinking_to_content = false;
+        data.normalize_markdown_images = false;
         data.proxy = '';
         data.pass_through_body_enabled = false;
         data.system_prompt = '';
@@ -724,6 +730,7 @@ const EditChannelModal = (props) => {
       setChannelSettings({
         force_format: data.force_format,
         thinking_to_content: data.thinking_to_content,
+        normalize_markdown_images: data.normalize_markdown_images,
         proxy: data.proxy,
         pass_through_body_enabled: data.pass_through_body_enabled,
         system_prompt: data.system_prompt,
@@ -1082,6 +1089,7 @@ const EditChannelModal = (props) => {
     setChannelSettings({
       force_format: false,
       thinking_to_content: false,
+      normalize_markdown_images: false,
       proxy: '',
       pass_through_body_enabled: false,
       system_prompt: '',
@@ -1447,6 +1455,7 @@ const EditChannelModal = (props) => {
     const channelExtraSettings = {
       force_format: localInputs.force_format || false,
       thinking_to_content: localInputs.thinking_to_content || false,
+      normalize_markdown_images: localInputs.normalize_markdown_images || false,
       proxy: localInputs.proxy || '',
       pass_through_body_enabled: localInputs.pass_through_body_enabled || false,
       system_prompt: localInputs.system_prompt || '',
@@ -1504,6 +1513,7 @@ const EditChannelModal = (props) => {
     // 清理不需要发送到后端的字段
     delete localInputs.force_format;
     delete localInputs.thinking_to_content;
+    delete localInputs.normalize_markdown_images;
     delete localInputs.proxy;
     delete localInputs.pass_through_body_enabled;
     delete localInputs.system_prompt;
@@ -3511,6 +3521,22 @@ const EditChannelModal = (props) => {
                       }
                       extraText={t(
                         '将 reasoning_content 转换为 <think> 标签拼接到内容中',
+                      )}
+                    />
+
+                    <Form.Switch
+                      field='normalize_markdown_images'
+                      label={t('Markdown图片标准化')}
+                      checkedText={t('开')}
+                      uncheckedText={t('关')}
+                      onChange={(value) =>
+                        handleChannelSettingsChange(
+                          'normalize_markdown_images',
+                          value,
+                        )
+                      }
+                      extraText={t(
+                        '将响应中的 Markdown 图片转换为标准 images JSON 格式',
                       )}
                     />
 

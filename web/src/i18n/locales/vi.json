@@ -1043,6 +1043,8 @@
     "快速选择": "Quick Select",
     "思考中...": "Đang suy nghĩ...",
     "思考内容转换": "Chuyển đổi nội dung suy nghĩ",
+    "Markdown图片标准化": "Chuẩn hóa hình ảnh Markdown",
+    "将响应中的 Markdown 图片转换为标准 images JSON 格式": "Chuyển đổi hình ảnh Markdown trong phản hồi sang định dạng JSON images tiêu chuẩn",
     "思考过程": "Quá trình suy nghĩ",
     "思考适配 BudgetTokens 百分比": "Tỷ lệ phần trăm BudgetTokens thích ứng tư duy",
     "思考预算占比": "Tỷ lệ ngân sách tư duy",
