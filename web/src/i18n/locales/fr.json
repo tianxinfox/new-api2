@@ -2769,7 +2769,24 @@
     "支付链接不存在": "Lien de paiement introuvable",
     "管理员未启用支付宝支付": "Le paiement Alipay n'est pas activé par l'administrateur",
     "请选择支付方式": "Veuillez sélectionner un mode de paiement",
-    "管理员未启用微信支付": "Le paiement WeChat Pay n'est pas activé par l'administrateur"
+    "管理员未启用微信支付": "Le paiement WeChat Pay n'est pas activé par l'administrateur",
+    "支付下单模式": "Mode de commande de paiement",
+    "页面支付 (page)": "Paiement sur page (page)",
+    "预下单二维码 (precreate)": "QR code de précréation (precreate)",
+    "WeChat Pay": "WeChat Pay",
+    "Scan with WeChat to complete payment": "Scannez avec WeChat pour terminer le paiement",
+    "Order ID": "ID de commande",
+    "Open WeChat and scan the QR code to pay. The page will automatically update after successful payment.": "Ouvrez WeChat et scannez le QR code pour payer. La page se mettra à jour automatiquement après un paiement réussi.",
+    "Alipay": "Alipay",
+    "Scan with Alipay to complete payment": "Scannez avec Alipay pour terminer le paiement",
+    "Open Alipay and scan the QR code to pay. The page will automatically update after successful payment.": "Ouvrez Alipay et scannez le QR code pour payer. La page se mettra à jour automatiquement après un paiement réussi.",
+    "微信扫码支付": "Paiement WeChat par scan",
+    "支付宝扫码支付": "Paiement Alipay par scan",
+    "请使用手机打开微信扫描二维码完成支付": "Veuillez ouvrir WeChat sur votre téléphone et scanner le QR code pour payer",
+    "请使用手机打开支付宝扫描二维码完成支付": "Veuillez ouvrir Alipay sur votre téléphone et scanner le QR code pour payer",
+    "已完成支付": "J'ai terminé le paiement",
+    "支付状态尚未更新，请稍后再试": "Le statut du paiement n'a pas encore été mis à jour. Veuillez réessayer dans un instant.",
+    "检测到密钥/证书为空输入，已自动跳过覆盖以保护现有配置。": "Entrée de clé/certificat vide détectée; l'écrasement a été ignoré pour protéger la configuration existante."
   }
 }
 

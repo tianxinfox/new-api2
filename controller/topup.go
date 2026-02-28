@@ -87,6 +87,7 @@ func GetTopUpInfo(c *gin.Context) {
 		"enable_stripe_topup": setting.StripeApiSecret != "" && setting.StripeWebhookSecret != "" && setting.StripePriceId != "",
 		"enable_wechat_topup": IsWeChatPayConfigured(),
 		"enable_alipay_topup": IsAlipayConfigured(),
+		"alipay_pay_mode":     getAlipayPayMode(),
 		"enable_creem_topup":  setting.CreemApiKey != "" && setting.CreemProducts != "[]",
 		"creem_products":      setting.CreemProducts,
 		"pay_methods":         payMethods,

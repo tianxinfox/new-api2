@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Banner, Button, Col, Form, Row, Spin, Typography } from '@douyinfe/semi-ui';
-import { API, showError, showSuccess } from '../../../helpers';
+import { API, showError, showInfo, showSuccess } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
 
 const { Text } = Typography;
@@ -31,6 +31,7 @@ export default function SettingsPaymentGatewayAlipay(props) {
     AlipayEnabled: false,
     AlipaySandbox: false,
     AlipayUseCertificateMode: false,
+    AlipayPayMode: 'page',
     AlipayAppID: '',
     AlipayPrivateKey: '',
     AlipayPublicKey: '',
@@ -47,6 +48,7 @@ export default function SettingsPaymentGatewayAlipay(props) {
         AlipayEnabled: props.options.AlipayEnabled || false,
         AlipaySandbox: props.options.AlipaySandbox || false,
         AlipayUseCertificateMode: props.options.AlipayUseCertificateMode || false,
+        AlipayPayMode: props.options.AlipayPayMode || 'page',
         AlipayAppID: props.options.AlipayAppID || '',
         AlipayPrivateKey: props.options.AlipayPrivateKey || '',
         AlipayPublicKey: props.options.AlipayPublicKey || '',
@@ -64,23 +66,35 @@ export default function SettingsPaymentGatewayAlipay(props) {
     setLoading(true);
     try {
       const options = [];
+      const nextOriginInputs = { ...originInputs };
+      const skippedSensitiveKeys = [];
       if (originInputs.AlipayEnabled !== inputs.AlipayEnabled) {
         options.push({
           key: 'AlipayEnabled',
           value: inputs.AlipayEnabled ? 'true' : 'false',
         });
+        nextOriginInputs.AlipayEnabled = inputs.AlipayEnabled;
       }
       if (originInputs.AlipaySandbox !== inputs.AlipaySandbox) {
         options.push({
           key: 'AlipaySandbox',
           value: inputs.AlipaySandbox ? 'true' : 'false',
         });
+        nextOriginInputs.AlipaySandbox = inputs.AlipaySandbox;
       }
       if (originInputs.AlipayUseCertificateMode !== inputs.AlipayUseCertificateMode) {
         options.push({
           key: 'AlipayUseCertificateMode',
           value: inputs.AlipayUseCertificateMode ? 'true' : 'false',
         });
+        nextOriginInputs.AlipayUseCertificateMode = inputs.AlipayUseCertificateMode;
+      }
+      if (originInputs.AlipayPayMode !== inputs.AlipayPayMode) {
+        options.push({
+          key: 'AlipayPayMode',
+          value: inputs.AlipayPayMode || 'page',
+        });
+        nextOriginInputs.AlipayPayMode = inputs.AlipayPayMode || 'page';
       }
       [
         'AlipayAppID',
@@ -92,10 +106,19 @@ export default function SettingsPaymentGatewayAlipay(props) {
       ].forEach((key) => {
         const nextValue = inputs[key] ?? '';
         const prevValue = originInputs[key] ?? '';
+        // Safety guard: empty value won't overwrite existing Alipay credentials.
+        if (prevValue !== '' && nextValue === '') {
+          skippedSensitiveKeys.push(key);
+          return;
+        }
         if (nextValue !== prevValue) {
           options.push({ key, value: nextValue });
+          nextOriginInputs[key] = nextValue;
         }
       });
+      if (skippedSensitiveKeys.length > 0) {
+        showInfo(t('检测到密钥/证书为空输入，已自动跳过覆盖以保护现有配置。'));
+      }
       if (options.length === 0) {
         showSuccess(t('无更新'));
         setLoading(false);
@@ -113,7 +136,7 @@ export default function SettingsPaymentGatewayAlipay(props) {
         errorResults.forEach((res) => showError(res.data.message));
       } else {
         showSuccess(t('更新成功'));
-        setOriginInputs({ ...inputs });
+        setOriginInputs(nextOriginInputs);
         props.refresh?.();
       }
     } catch (error) {
@@ -170,6 +193,16 @@ export default function SettingsPaymentGatewayAlipay(props) {
                 checkedText={t('是')}
                 uncheckedText={t('否')}
                 label={t('使用证书模式')}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+              <Form.Select
+                field='AlipayPayMode'
+                label={t('支付下单模式')}
+                optionList={[
+                  { label: t('页面支付 (page)'), value: 'page' },
+                  { label: t('预下单二维码 (precreate)'), value: 'precreate' },
+                ]}
               />
             </Col>
             <Col xs={24} sm={24} md={8} lg={8} xl={8}>

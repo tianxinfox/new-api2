@@ -2857,7 +2857,24 @@
     "支付链接不存在": "支付链接不存在",
     "管理员未启用支付宝支付": "管理员未启用支付宝支付",
     "请选择支付方式": "请选择支付方式",
-    "管理员未启用微信支付": "管理员未启用微信支付"
+    "管理员未启用微信支付": "管理员未启用微信支付",
+    "支付下单模式": "支付下单模式",
+    "页面支付 (page)": "页面支付 (page)",
+    "预下单二维码 (precreate)": "预下单二维码 (precreate)",
+    "WeChat Pay": "微信支付",
+    "Scan with WeChat to complete payment": "使用微信扫码完成支付",
+    "Order ID": "订单号",
+    "Open WeChat and scan the QR code to pay. The page will automatically update after successful payment.": "打开微信扫描二维码完成支付，支付成功后页面将自动更新。",
+    "Alipay": "支付宝",
+    "Scan with Alipay to complete payment": "使用支付宝扫码完成支付",
+    "Open Alipay and scan the QR code to pay. The page will automatically update after successful payment.": "打开支付宝扫描二维码完成支付，支付成功后页面将自动更新。",
+    "微信扫码支付": "微信扫码支付",
+    "支付宝扫码支付": "支付宝扫码支付",
+    "请使用手机打开微信扫描二维码完成支付": "请使用手机打开微信扫描二维码完成支付",
+    "请使用手机打开支付宝扫描二维码完成支付": "请使用手机打开支付宝扫描二维码完成支付",
+    "已完成支付": "已完成支付",
+    "支付状态尚未更新，请稍后再试": "支付状态尚未更新，请稍后再试",
+    "检测到密钥/证书为空输入，已自动跳过覆盖以保护现有配置。": "检测到密钥/证书为空输入，已自动跳过覆盖以保护现有配置。"
   }
 }
 

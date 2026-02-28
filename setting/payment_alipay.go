@@ -1,5 +1,10 @@
 package setting
 
+const (
+	AlipayPayModePage      = "page"
+	AlipayPayModePreCreate = "precreate"
+)
+
 var AlipayEnabled = false
 var AlipayAppID = ""
 var AlipayPrivateKey = ""
@@ -9,3 +14,4 @@ var AlipayAppPublicCert = ""
 var AlipayAlipayPublicCert = ""
 var AlipayRootCert = ""
 var AlipaySandbox = false
+var AlipayPayMode = AlipayPayModePage

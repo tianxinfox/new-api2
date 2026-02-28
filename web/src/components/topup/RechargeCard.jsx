@@ -58,6 +58,7 @@ const RechargeCard = ({
   enableStripeTopUp,
   enableWeChatTopUp,
   enableAlipayTopUp,
+  alipayPayMode,
   enableCreemTopUp,
   creemProducts,
   creemPreTopUp,
@@ -640,8 +641,9 @@ const RechargeCard = ({
                 payMethods={payMethods}
                 enableOnlineTopUp={enableOnlineTopUp}
                 enableStripeTopUp={enableStripeTopUp}
-                enableWeChatTopUp={enableWeChatTopUp}
-                enableCreemTopUp={enableCreemTopUp}
+        enableWeChatTopUp={enableWeChatTopUp}
+        alipayPayMode={alipayPayMode}
+        enableCreemTopUp={enableCreemTopUp}
                 billingPreference={billingPreference}
                 onChangeBillingPreference={onChangeBillingPreference}
                 activeSubscriptions={activeSubscriptions}

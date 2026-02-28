@@ -2880,7 +2880,24 @@
     "支付链接不存在": "Payment link not found",
     "管理员未启用支付宝支付": "Alipay is not enabled by admin",
     "请选择支付方式": "Please select a payment method",
-    "管理员未启用微信支付": "WeChat Pay is not enabled by admin"
+    "管理员未启用微信支付": "WeChat Pay is not enabled by admin",
+    "支付下单模式": "Payment order mode",
+    "页面支付 (page)": "Page payment (page)",
+    "预下单二维码 (precreate)": "Pre-create QR code (precreate)",
+    "WeChat Pay": "WeChat Pay",
+    "Scan with WeChat to complete payment": "Scan with WeChat to complete payment",
+    "Order ID": "Order ID",
+    "Open WeChat and scan the QR code to pay. The page will automatically update after successful payment.": "Open WeChat and scan the QR code to pay. The page will automatically update after successful payment.",
+    "Alipay": "Alipay",
+    "Scan with Alipay to complete payment": "Scan with Alipay to complete payment",
+    "Open Alipay and scan the QR code to pay. The page will automatically update after successful payment.": "Open Alipay and scan the QR code to pay. The page will automatically update after successful payment.",
+    "微信扫码支付": "WeChat Scan Payment",
+    "支付宝扫码支付": "Alipay Scan Payment",
+    "请使用手机打开微信扫描二维码完成支付": "Please use your phone to open WeChat and scan the QR code to complete payment",
+    "请使用手机打开支付宝扫描二维码完成支付": "Please use your phone to open Alipay and scan the QR code to complete payment",
+    "已完成支付": "I've completed payment",
+    "支付状态尚未更新，请稍后再试": "Payment status has not updated yet. Please try again shortly.",
+    "检测到密钥/证书为空输入，已自动跳过覆盖以保护现有配置。": "Detected empty key/certificate input; overwrite was skipped to protect existing configuration."
   }
 }
 

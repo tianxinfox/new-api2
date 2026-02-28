@@ -3326,7 +3326,24 @@
     "支付链接不存在": "Không tìm thấy liên kết thanh toán",
     "管理员未启用支付宝支付": "Quản trị viên chưa bật thanh toán Alipay",
     "请选择支付方式": "Vui lòng chọn phương thức thanh toán",
-    "管理员未启用微信支付": "Quản trị viên chưa bật thanh toán WeChat Pay"
+    "管理员未启用微信支付": "Quản trị viên chưa bật thanh toán WeChat Pay",
+    "支付下单模式": "Chế độ tạo đơn thanh toán",
+    "页面支付 (page)": "Thanh toán trang (page)",
+    "预下单二维码 (precreate)": "Mã QR tạo trước (precreate)",
+    "WeChat Pay": "WeChat Pay",
+    "Scan with WeChat to complete payment": "Quét bằng WeChat để hoàn tất thanh toán",
+    "Order ID": "Mã đơn hàng",
+    "Open WeChat and scan the QR code to pay. The page will automatically update after successful payment.": "Mở WeChat và quét mã QR để thanh toán. Trang sẽ tự động cập nhật sau khi thanh toán thành công.",
+    "Alipay": "Alipay",
+    "Scan with Alipay to complete payment": "Quét bằng Alipay để hoàn tất thanh toán",
+    "Open Alipay and scan the QR code to pay. The page will automatically update after successful payment.": "Mở Alipay và quét mã QR để thanh toán. Trang sẽ tự động cập nhật sau khi thanh toán thành công.",
+    "微信扫码支付": "Thanh toán quét mã WeChat",
+    "支付宝扫码支付": "Thanh toán quét mã Alipay",
+    "请使用手机打开微信扫描二维码完成支付": "Vui lòng mở WeChat trên điện thoại và quét mã QR để hoàn tất thanh toán",
+    "请使用手机打开支付宝扫描二维码完成支付": "Vui lòng mở Alipay trên điện thoại và quét mã QR để hoàn tất thanh toán",
+    "已完成支付": "Đã thanh toán",
+    "支付状态尚未更新，请稍后再试": "Trạng thái thanh toán chưa cập nhật, vui lòng thử lại sau.",
+    "检测到密钥/证书为空输入，已自动跳过覆盖以保护现有配置。": "Phát hiện nhập khóa/chứng chỉ trống; đã bỏ qua ghi đè để bảo vệ cấu hình hiện có."
   }
 }
 

@@ -2752,7 +2752,24 @@
     "支付链接不存在": "支払いリンクが見つかりません",
     "管理员未启用支付宝支付": "管理者がAlipay決済を有効化していません",
     "请选择支付方式": "支払い方法を選択してください",
-    "管理员未启用微信支付": "管理者がWeChat Pay決済を有効化していません"
+    "管理员未启用微信支付": "管理者がWeChat Pay決済を有効化していません",
+    "支付下单模式": "決済注文モード",
+    "页面支付 (page)": "ページ決済 (page)",
+    "预下单二维码 (precreate)": "事前作成QRコード (precreate)",
+    "WeChat Pay": "WeChat Pay",
+    "Scan with WeChat to complete payment": "WeChatでスキャンして支払いを完了",
+    "Order ID": "注文ID",
+    "Open WeChat and scan the QR code to pay. The page will automatically update after successful payment.": "WeChatを開いてQRコードをスキャンして支払ってください。支払い成功後、ページは自動的に更新されます。",
+    "Alipay": "Alipay",
+    "Scan with Alipay to complete payment": "Alipayでスキャンして支払いを完了",
+    "Open Alipay and scan the QR code to pay. The page will automatically update after successful payment.": "Alipayを開いてQRコードをスキャンして支払ってください。支払い成功後、ページは自動的に更新されます。",
+    "微信扫码支付": "WeChat QR支払い",
+    "支付宝扫码支付": "Alipay QR支払い",
+    "请使用手机打开微信扫描二维码完成支付": "スマートフォンでWeChatを開き、QRコードをスキャンして支払いを完了してください",
+    "请使用手机打开支付宝扫描二维码完成支付": "スマートフォンでAlipayを開き、QRコードをスキャンして支払いを完了してください",
+    "已完成支付": "支払い完了",
+    "支付状态尚未更新，请稍后再试": "支払い状態はまだ更新されていません。しばらくしてから再試行してください。",
+    "检测到密钥/证书为空输入，已自动跳过覆盖以保护现有配置。": "キー/証明書の空入力を検出したため、既存設定を保護するため上書きをスキップしました。"
   }
 }
 

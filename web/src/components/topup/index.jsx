@@ -29,7 +29,6 @@ import {
   getQuotaPerUnit,
 } from '../../helpers';
 import { Modal, Toast } from '@douyinfe/semi-ui';
-import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
@@ -39,7 +38,7 @@ import InvitationCard from './InvitationCard';
 import TransferModal from './modals/TransferModal';
 import PaymentConfirmModal from './modals/PaymentConfirmModal';
 import TopupHistoryModal from './modals/TopupHistoryModal';
-import WeChatIcon from '../common/logo/WeChatIcon';
+import ScanPayModal from './modals/ScanPayModal';
 
 const WECHAT_PAY_POLLING_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -71,6 +70,7 @@ const TopUp = () => {
   const [enableAlipayTopUp, setEnableAlipayTopUp] = useState(
     statusState?.status?.enable_alipay_topup || false,
   );
+  const [alipayPayMode, setAlipayPayMode] = useState('page');
   const [statusLoading, setStatusLoading] = useState(true);
 
   // Creem 支付产品与弹窗状态
@@ -89,7 +89,13 @@ const TopUp = () => {
   const [wechatPayOpen, setWechatPayOpen] = useState(false);
   const [wechatPayCodeUrl, setWechatPayCodeUrl] = useState('');
   const [wechatPayTradeNo, setWechatPayTradeNo] = useState('');
+  const [wechatCheckLoading, setWechatCheckLoading] = useState(false);
   const wechatPayPollingRef = useRef(null);
+  const [alipayPrecreateOpen, setAlipayPrecreateOpen] = useState(false);
+  const [alipayPrecreateCodeUrl, setAlipayPrecreateCodeUrl] = useState('');
+  const [alipayPrecreateTradeNo, setAlipayPrecreateTradeNo] = useState('');
+  const [alipayCheckLoading, setAlipayCheckLoading] = useState(false);
+  const alipayPrecreatePollingRef = useRef(null);
 
   const affFetchedRef = useRef(false);
 
@@ -217,7 +223,7 @@ const TopUp = () => {
       return;
     }
     let alipayWindow = null;
-    if (payWay === 'alipay') {
+    if (payWay === 'alipay' && alipayPayMode !== 'precreate') {
       alipayWindow = window.open('about:blank', '_blank');
     }
     setConfirmLoading(true);
@@ -256,17 +262,30 @@ const TopUp = () => {
             }
             window.open(payLink, '_blank');
           } else if (payWay === 'alipay') {
-            if (!data?.pay_link) {
+            if (data?.pay_mode === 'precreate') {
               if (alipayWindow) {
                 alipayWindow.close();
               }
-              showError(t('支付失败'));
-              return;
-            }
-            if (alipayWindow) {
-              alipayWindow.location.href = data.pay_link;
+              if (!data?.qr_code) {
+                showError(t('支付失败'));
+                return;
+              }
+              setAlipayPrecreateCodeUrl(data.qr_code);
+              setAlipayPrecreateTradeNo(data.trade_no || '');
+              setAlipayPrecreateOpen(true);
             } else {
-              window.location.href = data.pay_link;
+              if (!data?.pay_link) {
+                if (alipayWindow) {
+                  alipayWindow.close();
+                }
+                showError(t('支付失败'));
+                return;
+              }
+              if (alipayWindow) {
+                alipayWindow.location.href = data.pay_link;
+              } else {
+                window.location.href = data.pay_link;
+              }
             }
           } else if (payWay === 'wechat') {
             setWechatPayCodeUrl(data.code_url || '');
@@ -494,6 +513,7 @@ const TopUp = () => {
       const enableStripeTopUp = data.enable_stripe_topup || false;
       const enableWeChatTopUp = data.enable_wechat_topup || false;
       const enableAlipayTopUp = data.enable_alipay_topup || false;
+      const resolvedAlipayPayMode = data.alipay_pay_mode || 'page';
       const enableOnlineTopUp = data.enable_online_topup || false;
       const enableCreemTopUp = data.enable_creem_topup || false;
       const minTopUpValue = enableOnlineTopUp || enableWeChatTopUp || enableAlipayTopUp
@@ -506,6 +526,7 @@ const TopUp = () => {
       setEnableStripeTopUp(enableStripeTopUp);
       setEnableWeChatTopUp(enableWeChatTopUp);
       setEnableAlipayTopUp(enableAlipayTopUp);
+      setAlipayPayMode(resolvedAlipayPayMode);
       setEnableCreemTopUp(enableCreemTopUp);
       setMinTopUp(minTopUpValue);
       setTopUpCount(minTopUpValue);
@@ -678,6 +699,51 @@ const TopUp = () => {
   };
   const handleWeChatPayCancel = () => {
     setWechatPayOpen(false);
+    setWechatPayCodeUrl('');
+    setWechatPayTradeNo('');
+  };
+  const handleAlipayPrecreateCancel = () => {
+    setAlipayPrecreateOpen(false);
+    setAlipayPrecreateCodeUrl('');
+    setAlipayPrecreateTradeNo('');
+  };
+
+  const handleTopupStatusAfterCheck = async (status, closeModal) => {
+    if (status === 'success') {
+      closeModal();
+      showSuccess(t('Payment successful'));
+      await getUserQuota();
+      await getTopupInfo();
+      return;
+    }
+    if (status === 'unpaid' || status === 'failed' || status === 'expired') {
+      closeModal();
+      showError(t(status === 'unpaid' ? '未支付' : '支付失败'));
+      return;
+    }
+    showInfo(t('支付状态尚未更新，请稍后再试'));
+  };
+
+  const handleManualCheckWeChat = async () => {
+    if (!wechatPayTradeNo) return;
+    setWechatCheckLoading(true);
+    try {
+      const status = await queryTopupTradeStatus(wechatPayTradeNo);
+      await handleTopupStatusAfterCheck(status, handleWeChatPayCancel);
+    } finally {
+      setWechatCheckLoading(false);
+    }
+  };
+
+  const handleManualCheckAlipay = async () => {
+    if (!alipayPrecreateTradeNo) return;
+    setAlipayCheckLoading(true);
+    try {
+      const status = await queryTopupTradeStatus(alipayPrecreateTradeNo);
+      await handleTopupStatusAfterCheck(status, handleAlipayPrecreateCancel);
+    } finally {
+      setAlipayCheckLoading(false);
+    }
   };
 
   const queryTopupTradeStatus = async (tradeNo) => {
@@ -758,6 +824,74 @@ const TopUp = () => {
       clearPolling();
     };
   }, [wechatPayOpen, wechatPayTradeNo, t]);
+
+  useEffect(() => {
+    const clearPolling = () => {
+      if (alipayPrecreatePollingRef.current) {
+        clearInterval(alipayPrecreatePollingRef.current);
+        alipayPrecreatePollingRef.current = null;
+      }
+    };
+
+    if (!alipayPrecreateOpen || !alipayPrecreateTradeNo) {
+      clearPolling();
+      return () => clearPolling();
+    }
+
+    let stopped = false;
+    let timeoutRef = null;
+    const pollOnce = async () => {
+      if (stopped) return;
+      try {
+        const status = await queryTopupTradeStatus(alipayPrecreateTradeNo);
+        if (status === 'success') {
+          clearPolling();
+          if (timeoutRef) {
+            clearTimeout(timeoutRef);
+            timeoutRef = null;
+          }
+          if (stopped) return;
+          setAlipayPrecreateOpen(false);
+          showSuccess(t('Payment successful'));
+          getUserQuota().then();
+          getTopupInfo().then();
+          return;
+        }
+        if (
+          status === 'unpaid' ||
+          status === 'failed' ||
+          status === 'expired'
+        ) {
+          clearPolling();
+          if (timeoutRef) {
+            clearTimeout(timeoutRef);
+            timeoutRef = null;
+          }
+          if (stopped) return;
+          setAlipayPrecreateOpen(false);
+          showError(t(status === 'unpaid' ? '未支付' : '支付失败'));
+        }
+      } catch (e) {
+        // ignore polling errors
+      }
+    };
+
+    pollOnce();
+    alipayPrecreatePollingRef.current = setInterval(pollOnce, 2000);
+    timeoutRef = setTimeout(() => {
+      clearPolling();
+      if (stopped) return;
+      showInfo(t('Payment status polling timed out, please refresh manually.'));
+    }, WECHAT_PAY_POLLING_TIMEOUT_MS);
+
+    return () => {
+      stopped = true;
+      if (timeoutRef) {
+        clearTimeout(timeoutRef);
+      }
+      clearPolling();
+    };
+  }, [alipayPrecreateOpen, alipayPrecreateTradeNo, t]);
 
   const selectPresetAmount = (preset) => {
     setTopUpCount(preset.value);
@@ -844,64 +978,30 @@ const TopUp = () => {
         )}
       </Modal>
 
-      <Modal
-        title={null}
+      <ScanPayModal
         visible={wechatPayOpen}
+        title={t('微信扫码支付')}
+        qrCode={wechatPayCodeUrl}
+        instruction={t('请使用手机打开微信扫描二维码完成支付')}
+        orderId={wechatPayTradeNo}
+        orderLabel={t('Order ID')}
         onCancel={handleWeChatPayCancel}
-        footer={null}
-        centered
-        size='small'
-        bodyStyle={{ padding: 0 }}
-      >
-        <div className='flex flex-col items-center py-8 px-6'>
-          {/* WeChat Header */}
-          <div className='flex items-center gap-3 mb-6'>
-            <div className='w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center shadow-lg'>
-              <WeChatIcon />
-            </div>
-            <div>
-              <h3 className='text-lg font-semibold text-gray-800'>{t('WeChat Pay')}</h3>
-              <p className='text-xs text-gray-500'>{t('Scan with WeChat to complete payment')}</p>
-            </div>
-          </div>
-
-          {/* QR Code Container */}
-          <div className='relative mb-6'>
-            <div className='absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl blur-xl opacity-60'></div>
-            <div className='relative bg-white p-6 rounded-2xl shadow-xl border-2 border-green-100'>
-              {wechatPayCodeUrl ? (
-                <QRCodeSVG
-                  value={wechatPayCodeUrl}
-                  size={240}
-                  level="H"
-                  includeMargin={true}
-                />
-              ) : (
-                <div className='w-60 h-60 flex items-center justify-center'>
-                  <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-green-500'></div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Order Info */}
-          {wechatPayTradeNo && (
-            <div className='w-full bg-gray-50 rounded-lg p-3 mb-4'>
-              <p className='text-xs text-gray-500 text-center'>
-                {t('Order ID')}: <span className='font-mono text-gray-700'>{wechatPayTradeNo}</span>
-              </p>
-            </div>
-          )}
-
-          {/* Instructions */}
-          <div className='flex items-start gap-2 text-xs text-gray-600 bg-green-50 rounded-lg p-3 w-full'>
-            <svg className='w-4 h-4 text-green-600 mt-0.5 flex-shrink-0' fill='currentColor' viewBox='0 0 20 20'>
-              <path fillRule='evenodd' d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z' clipRule='evenodd' />
-            </svg>
-            <span>{t('Open WeChat and scan the QR code to pay. The page will automatically update after successful payment.')}</span>
-          </div>
-        </div>
-      </Modal>
+        onCheckPaid={handleManualCheckWeChat}
+        checking={wechatCheckLoading}
+        checkButtonText={t('已完成支付')}
+      />
+      <ScanPayModal
+        visible={alipayPrecreateOpen}
+        title={t('支付宝扫码支付')}
+        qrCode={alipayPrecreateCodeUrl}
+        instruction={t('请使用手机打开支付宝扫描二维码完成支付')}
+        orderId={alipayPrecreateTradeNo}
+        orderLabel={t('Order ID')}
+        onCancel={handleAlipayPrecreateCancel}
+        onCheckPaid={handleManualCheckAlipay}
+        checking={alipayCheckLoading}
+        checkButtonText={t('已完成支付')}
+      />
 
       <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
         <RechargeCard
@@ -910,6 +1010,7 @@ const TopUp = () => {
           enableStripeTopUp={enableStripeTopUp}
           enableWeChatTopUp={enableWeChatTopUp}
           enableAlipayTopUp={enableAlipayTopUp}
+          alipayPayMode={alipayPayMode}
           enableCreemTopUp={enableCreemTopUp}
           creemProducts={creemProducts}
           creemPreTopUp={creemPreTopUp}

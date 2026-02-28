@@ -104,6 +104,7 @@ func InitOptionMap() {
 	common.OptionMap["AlipayAlipayPublicCert"] = setting.AlipayAlipayPublicCert
 	common.OptionMap["AlipayRootCert"] = setting.AlipayRootCert
 	common.OptionMap["AlipaySandbox"] = strconv.FormatBool(setting.AlipaySandbox)
+	common.OptionMap["AlipayPayMode"] = setting.AlipayPayMode
 	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
 	common.OptionMap["Chats"] = setting.Chats2JsonString()
 	common.OptionMap["AutoGroups"] = setting.AutoGroups2JsonString()
@@ -403,6 +404,12 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.AlipayRootCert = value
 	case "AlipaySandbox":
 		setting.AlipaySandbox = value == "true"
+	case "AlipayPayMode":
+		value = strings.ToLower(strings.TrimSpace(value))
+		if value != setting.AlipayPayModePreCreate {
+			value = setting.AlipayPayModePage
+		}
+		setting.AlipayPayMode = value
 	case "TopupGroupRatio":
 		err = common.UpdateTopupGroupRatioByJSONString(value)
 	case "GitHubClientId":

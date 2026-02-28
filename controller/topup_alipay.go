@@ -73,21 +73,34 @@ func RequestAlipayPay(c *gin.Context) {
 	}
 	tradeNo := fmt.Sprintf("ALIUSR%dNO%s%d", userID, common.GetRandomString(6), time.Now().Unix())
 	callBackAddress := service.GetCallbackAddress()
-	payURL, err := client.TradePagePay(alipay.TradePagePay{
-		Trade: alipay.Trade{
-			NotifyURL:      callBackAddress + "/api/user/alipay/notify",
-			ReturnURL:      system_setting.ServerAddress + "/console/topup",
-			Subject:        fmt.Sprintf("TUC%d", req.Amount),
-			OutTradeNo:     tradeNo,
-			TotalAmount:    decimal.NewFromFloat(payMoney).StringFixed(2),
-			ProductCode:    "FAST_INSTANT_TRADE_PAY",
-			TimeoutExpress: "30m",
-		},
-	})
-	if err != nil || payURL == nil {
-		common.SysError(fmt.Sprintf("alipay trade page pay failed: user_id=%d trade_no=%s err=%v pay_url_nil=%t", userID, tradeNo, err, payURL == nil))
-		common.ApiErrorMsgLegacy(c, "failed to initiate payment")
-		return
+	payMode := getAlipayPayMode()
+	trade := alipay.Trade{
+		NotifyURL:      callBackAddress + "/api/user/alipay/notify",
+		ReturnURL:      system_setting.ServerAddress + "/console/topup",
+		Subject:        fmt.Sprintf("TUC%d", req.Amount),
+		OutTradeNo:     tradeNo,
+		TotalAmount:    decimal.NewFromFloat(payMoney).StringFixed(2),
+		ProductCode:    getAlipayProductCode(payMode),
+		TimeoutExpress: "30m",
+	}
+	payLink := ""
+	qrCode := ""
+	if payMode == setting.AlipayPayModePreCreate {
+		rsp, preErr := client.TradePreCreate(c.Request.Context(), alipay.TradePreCreate{Trade: trade})
+		if preErr != nil || rsp == nil || rsp.IsFailure() || rsp.QRCode == "" {
+			logAlipayPreCreateError("alipay trade precreate failed", userID, tradeNo, preErr, rsp)
+			common.ApiErrorMsgLegacy(c, getAlipayPreCreateFailureMessage(preErr, rsp))
+			return
+		}
+		qrCode = rsp.QRCode
+	} else {
+		payURL, pageErr := client.TradePagePay(alipay.TradePagePay{Trade: trade})
+		if pageErr != nil || payURL == nil {
+			common.SysError(fmt.Sprintf("alipay trade page pay failed: user_id=%d trade_no=%s err=%v pay_url_nil=%t", userID, tradeNo, pageErr, payURL == nil))
+			common.ApiErrorMsgLegacy(c, "failed to initiate payment")
+			return
+		}
+		payLink = payURL.String()
 	}
 
 	amount := req.Amount
@@ -113,7 +126,9 @@ func RequestAlipayPay(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "success",
 		"data": gin.H{
-			"pay_link": payURL.String(),
+			"pay_mode": payMode,
+			"pay_link": payLink,
+			"qr_code":  qrCode,
 			"trade_no": tradeNo,
 		},
 	})

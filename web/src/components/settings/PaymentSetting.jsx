@@ -59,6 +59,7 @@ const PaymentSetting = () => {
     AlipayEnabled: false,
     AlipaySandbox: false,
     AlipayUseCertificateMode: false,
+    AlipayPayMode: 'page',
     AlipayAppID: '',
     AlipayPrivateKey: '',
     AlipayPublicKey: '',

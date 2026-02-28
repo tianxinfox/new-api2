@@ -2837,7 +2837,24 @@
     "支付链接不存在": "支付連結不存在",
     "管理员未启用支付宝支付": "管理員未啟用支付寶支付",
     "请选择支付方式": "請選擇支付方式",
-    "管理员未启用微信支付": "管理員未啟用微信支付"
+    "管理员未启用微信支付": "管理員未啟用微信支付",
+    "支付下单模式": "支付下單模式",
+    "页面支付 (page)": "頁面支付 (page)",
+    "预下单二维码 (precreate)": "預下單二維碼 (precreate)",
+    "WeChat Pay": "微信支付",
+    "Scan with WeChat to complete payment": "使用微信掃碼完成支付",
+    "Order ID": "訂單號",
+    "Open WeChat and scan the QR code to pay. The page will automatically update after successful payment.": "打開微信掃描二維碼完成支付，支付成功後頁面將自動更新。",
+    "Alipay": "支付寶",
+    "Scan with Alipay to complete payment": "使用支付寶掃碼完成支付",
+    "Open Alipay and scan the QR code to pay. The page will automatically update after successful payment.": "打開支付寶掃描二維碼完成支付，支付成功後頁面將自動更新。",
+    "微信扫码支付": "微信掃碼支付",
+    "支付宝扫码支付": "支付寶掃碼支付",
+    "请使用手机打开微信扫描二维码完成支付": "請使用手機打開微信掃描二維碼完成支付",
+    "请使用手机打开支付宝扫描二维码完成支付": "請使用手機打開支付寶掃描二維碼完成支付",
+    "已完成支付": "已完成支付",
+    "支付状态尚未更新，请稍后再试": "支付狀態尚未更新，請稍後再試",
+    "检测到密钥/证书为空输入，已自动跳过覆盖以保护现有配置。": "檢測到密鑰/證書為空輸入，已自動跳過覆蓋以保護現有配置。"
   }
 }
 

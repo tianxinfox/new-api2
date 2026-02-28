@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/shopspring/decimal"
 	alipay "github.com/smartwalle/alipay/v3"
@@ -150,4 +151,49 @@ func alipayMoneyStrToCents(money string) (int64, error) {
 		return 0, err
 	}
 	return d.Mul(decimal.NewFromInt(100)).Round(0).IntPart(), nil
+}
+
+func getAlipayPayMode() string {
+	mode := strings.ToLower(strings.TrimSpace(setting.AlipayPayMode))
+	if mode == setting.AlipayPayModePreCreate {
+		return setting.AlipayPayModePreCreate
+	}
+	return setting.AlipayPayModePage
+}
+
+func getAlipayProductCode(payMode string) string {
+	if payMode == setting.AlipayPayModePreCreate {
+		return "FACE_TO_FACE_PAYMENT"
+	}
+	return "FAST_INSTANT_TRADE_PAY"
+}
+
+func logAlipayPreCreateError(prefix string, userID int, tradeNo string, err error, rsp *alipay.TradePreCreateRsp) {
+	code, msg, subCode, subMsg := "", "", "", ""
+	qrCodeEmpty := false
+	if rsp != nil {
+		code = string(rsp.Code)
+		msg = rsp.Msg
+		subCode = rsp.SubCode
+		subMsg = rsp.SubMsg
+		qrCodeEmpty = rsp.QRCode == ""
+	}
+	common.SysError(fmt.Sprintf("%s: user_id=%d trade_no=%s err=%v rsp_nil=%t code=%s msg=%s sub_code=%s sub_msg=%s qr_code_empty=%t",
+		prefix, userID, tradeNo, err, rsp == nil, code, msg, subCode, subMsg, qrCodeEmpty))
+}
+
+func getAlipayPreCreateFailureMessage(err error, rsp *alipay.TradePreCreateRsp) string {
+	if err != nil {
+		return fmt.Sprintf("alipay precreate failed: %v", err)
+	}
+	if rsp == nil {
+		return "alipay precreate failed: empty response"
+	}
+	if rsp.SubMsg != "" {
+		return fmt.Sprintf("alipay precreate failed: [%s] %s", rsp.SubCode, rsp.SubMsg)
+	}
+	if rsp.Msg != "" {
+		return fmt.Sprintf("alipay precreate failed: [%s] %s", rsp.Code, rsp.Msg)
+	}
+	return "alipay precreate failed"
 }

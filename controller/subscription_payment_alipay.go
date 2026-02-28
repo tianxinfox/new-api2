@@ -84,21 +84,34 @@ func SubscriptionRequestAlipayPay(c *gin.Context) {
 	}
 	tradeNo := fmt.Sprintf("SUBALIUSR%dNO%s%d", userID, common.GetRandomString(6), time.Now().Unix())
 	callBackAddress := service.GetCallbackAddress()
-	payURL, err := client.TradePagePay(alipay.TradePagePay{
-		Trade: alipay.Trade{
-			NotifyURL:      callBackAddress + "/api/subscription/alipay/notify",
-			ReturnURL:      system_setting.ServerAddress + "/console/subscription",
-			Subject:        fmt.Sprintf("SUB:%s", plan.Title),
-			OutTradeNo:     tradeNo,
-			TotalAmount:    decimal.NewFromFloat(plan.PriceAmount).StringFixed(2),
-			ProductCode:    "FAST_INSTANT_TRADE_PAY",
-			TimeoutExpress: "30m",
-		},
-	})
-	if err != nil || payURL == nil {
-		common.SysError(fmt.Sprintf("subscription alipay trade page pay failed: user_id=%d plan_id=%d trade_no=%s err=%v pay_url_nil=%t", userID, plan.Id, tradeNo, err, payURL == nil))
-		common.ApiErrorMsg(c, "failed to initiate payment")
-		return
+	payMode := getAlipayPayMode()
+	trade := alipay.Trade{
+		NotifyURL:      callBackAddress + "/api/subscription/alipay/notify",
+		ReturnURL:      system_setting.ServerAddress + "/console/subscription",
+		Subject:        fmt.Sprintf("SUB:%s", plan.Title),
+		OutTradeNo:     tradeNo,
+		TotalAmount:    decimal.NewFromFloat(plan.PriceAmount).StringFixed(2),
+		ProductCode:    getAlipayProductCode(payMode),
+		TimeoutExpress: "30m",
+	}
+	payLink := ""
+	qrCode := ""
+	if payMode == setting.AlipayPayModePreCreate {
+		rsp, preErr := client.TradePreCreate(c.Request.Context(), alipay.TradePreCreate{Trade: trade})
+		if preErr != nil || rsp == nil || rsp.IsFailure() || rsp.QRCode == "" {
+			logAlipayPreCreateError("subscription alipay trade precreate failed", userID, tradeNo, preErr, rsp)
+			common.ApiErrorMsg(c, getAlipayPreCreateFailureMessage(preErr, rsp))
+			return
+		}
+		qrCode = rsp.QRCode
+	} else {
+		payURL, pageErr := client.TradePagePay(alipay.TradePagePay{Trade: trade})
+		if pageErr != nil || payURL == nil {
+			common.SysError(fmt.Sprintf("subscription alipay trade page pay failed: user_id=%d plan_id=%d trade_no=%s err=%v pay_url_nil=%t", userID, plan.Id, tradeNo, pageErr, payURL == nil))
+			common.ApiErrorMsg(c, "failed to initiate payment")
+			return
+		}
+		payLink = payURL.String()
 	}
 
 	order := &model.SubscriptionOrder{
@@ -119,7 +132,9 @@ func SubscriptionRequestAlipayPay(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "success",
 		"data": gin.H{
-			"pay_link": payURL.String(),
+			"pay_mode": payMode,
+			"pay_link": payLink,
+			"qr_code":  qrCode,
 			"trade_no": tradeNo,
 		},
 	})
