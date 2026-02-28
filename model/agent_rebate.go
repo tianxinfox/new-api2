@@ -174,7 +174,7 @@ func settleAgentRebateBySource(sourceType string, sourceId int, subUserId int, t
 	})
 }
 
-func GetAgentRebateRecords(agentId int, keyword string, startIdx, num int) ([]AgentRebateListItem, int64, error) {
+func GetAgentRebateRecords(agentId int, keyword string, startTimestamp, endTimestamp int64, startIdx, num int) ([]AgentRebateListItem, int64, error) {
 	if startIdx < 0 {
 		startIdx = 0
 	}
@@ -190,6 +190,13 @@ func GetAgentRebateRecords(agentId int, keyword string, startIdx, num int) ([]Ag
 		Select("r.id, r.sub_user_id, u.username, r.source_type, r.trade_no, r.source_money, r.source_quota, r.rebate_rate, r.rebate_money, r.rebate_quota, r.created_at, r.settled_at").
 		Joins("LEFT JOIN users AS u ON u.id = r.sub_user_id").
 		Where("r.agent_id = ?", agentId)
+
+	if startTimestamp > 0 {
+		query = query.Where("r.created_at >= ?", startTimestamp)
+	}
+	if endTimestamp > 0 {
+		query = query.Where("r.created_at <= ?", endTimestamp)
+	}
 
 	if kw != "" {
 		like := "%" + kw + "%"
@@ -242,7 +249,7 @@ func GetAgentRebateStats(agentId int, startTimestamp, endTimestamp int64) (*Agen
 	stats.TotalRebateCount = totalRow.RebateCount
 
 	rangeQuery := DB.Model(&AgentRebateRecord{}).
-		Where("agent_id = ? AND settled_at >= ? AND settled_at <= ?", agentId, startTimestamp, endTimestamp)
+		Where("agent_id = ? AND created_at >= ? AND created_at <= ?", agentId, startTimestamp, endTimestamp)
 	var rangeRow aggregateRow
 	if err := rangeQuery.
 		Select("COALESCE(sum(rebate_money), 0) AS rebate_money, COALESCE(sum(rebate_quota), 0) AS rebate_quota, COUNT(1) AS rebate_count").

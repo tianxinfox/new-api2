@@ -134,8 +134,10 @@ func GetAgentRebates(c *gin.Context) {
 	agentId := c.GetInt("id")
 	pageInfo := common.GetPageQuery(c)
 	keyword := strings.TrimSpace(c.Query("keyword"))
+	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
+	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
 
-	items, total, err := model.GetAgentRebateRecords(agentId, keyword, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	items, total, err := model.GetAgentRebateRecords(agentId, keyword, startTimestamp, endTimestamp, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
 	if err != nil {
 		common.ApiError(c, err)
 		return

@@ -1168,10 +1168,14 @@ type AgentDashboardStats struct {
 	TodayConsumption        int     `json:"today_consumption"`
 	TodayRegistrations      int64   `json:"today_registrations"`
 	TodayAgentRegistrations int64   `json:"today_agent_registrations"`
+	RangeRebateMoney        float64 `json:"range_rebate_money"`
+	RangeRebateQuota        int64   `json:"range_rebate_quota"`
 	TotalTopup              float64 `json:"total_topup"`
 	TotalConsumption        int     `json:"total_consumption"`
 	TotalRegistrations      int64   `json:"total_registrations"`
 	TotalAgentRegistrations int64   `json:"total_agent_registrations"`
+	TotalRebateMoney        float64 `json:"total_rebate_money"`
+	TotalRebateQuota        int64   `json:"total_rebate_quota"`
 	TotalSubUsers           int64   `json:"total_sub_users"`
 	// rankings
 	ModelRanking   []AgentRankItem `json:"model_ranking"`
@@ -1253,6 +1257,27 @@ func GetAgentDashboardStats(agentId int, startTimestamp, endTimestamp int64) (*A
 		Where("used_user_id IN (?) AND status = ?", subUsersSubQuery, common.RedemptionCodeStatusUsed).
 		Scan(&totalRedeemQuota)
 	stats.TotalTopup = totalOnlineTopup + float64(totalRedeemQuota)/common.QuotaPerUnit
+
+	// Agent rebate totals for the selected range and overall.
+	type rebateAggregateRow struct {
+		RebateMoney float64 `gorm:"column:rebate_money"`
+		RebateQuota int64   `gorm:"column:rebate_quota"`
+	}
+	var rangeRebateRow rebateAggregateRow
+	DB.Model(&AgentRebateRecord{}).
+		Where("agent_id = ? AND created_at >= ? AND created_at <= ?", agentId, startTimestamp, endTimestamp).
+		Select("COALESCE(sum(rebate_money), 0) AS rebate_money, COALESCE(sum(rebate_quota), 0) AS rebate_quota").
+		Scan(&rangeRebateRow)
+	stats.RangeRebateMoney = rangeRebateRow.RebateMoney
+	stats.RangeRebateQuota = rangeRebateRow.RebateQuota
+
+	var totalRebateRow rebateAggregateRow
+	DB.Model(&AgentRebateRecord{}).
+		Where("agent_id = ?", agentId).
+		Select("COALESCE(sum(rebate_money), 0) AS rebate_money, COALESCE(sum(rebate_quota), 0) AS rebate_quota").
+		Scan(&totalRebateRow)
+	stats.TotalRebateMoney = totalRebateRow.RebateMoney
+	stats.TotalRebateQuota = totalRebateRow.RebateQuota
 
 	// LOG_DB may be a standalone database (LOG_SQL_DSN).
 	// In that case, cross-database subquery against users table is unavailable.

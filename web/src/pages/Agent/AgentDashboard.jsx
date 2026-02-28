@@ -35,8 +35,26 @@ const AgentDashboard = () => {
       setLoading(true);
       try {
         const [start, end] = range || getDefaultRange();
-        const startTs = Math.floor(start.getTime() / 1000);
-        const endTs = Math.floor(end.getTime() / 1000);
+        const normalizedStart = new Date(
+          start.getFullYear(),
+          start.getMonth(),
+          start.getDate(),
+          0,
+          0,
+          0,
+          0,
+        );
+        const normalizedEnd = new Date(
+          end.getFullYear(),
+          end.getMonth(),
+          end.getDate(),
+          23,
+          59,
+          59,
+          999,
+        );
+        const startTs = Math.floor(normalizedStart.getTime() / 1000);
+        const endTs = Math.floor(normalizedEnd.getTime() / 1000);
         const res = await API.get(
           `/api/agent/dashboard?start_timestamp=${startTs}&end_timestamp=${endTs}`,
         );
@@ -65,25 +83,25 @@ const AgentDashboard = () => {
 
   const statCards = [
     {
-      label: t('今日充值'),
+      label: t('区间充值'),
       value: stats ? `${currencySymbol}${Number(stats.today_topup || 0).toFixed(2)}` : '-',
       color: 'bg-emerald-50',
       textColor: 'text-emerald-600',
     },
     {
-      label: t('今日消费'),
+      label: t('区间消费'),
       value: stats ? renderQuota(stats.today_consumption) : '-',
       color: 'bg-orange-50',
       textColor: 'text-orange-600',
     },
     {
-      label: t('今日注册'),
+      label: t('区间注册'),
       value: stats ? stats.today_registrations : '-',
       color: 'bg-blue-50',
       textColor: 'text-blue-600',
     },
     {
-      label: t('今日代理注册'),
+      label: t('区间代理注册'),
       value: stats ? stats.today_agent_registrations : '-',
       color: 'bg-purple-50',
       textColor: 'text-purple-600',
@@ -113,6 +131,32 @@ const AgentDashboard = () => {
       value: stats ? stats.total_agent_registrations : '-',
       color: 'bg-purple-50',
       textColor: 'text-purple-600',
+    },
+  ];
+  const rebateCards = [
+    {
+      label: t('区间返利金额'),
+      value: stats ? `${currencySymbol}${Number(stats.range_rebate_money || 0).toFixed(2)}` : '-',
+      color: 'bg-cyan-50',
+      textColor: 'text-cyan-600',
+    },
+    {
+      label: t('区间返利额度'),
+      value: stats ? renderQuota(stats.range_rebate_quota || 0) : '-',
+      color: 'bg-teal-50',
+      textColor: 'text-teal-600',
+    },
+    {
+      label: t('累计返利金额'),
+      value: stats ? `${currencySymbol}${Number(stats.total_rebate_money || 0).toFixed(2)}` : '-',
+      color: 'bg-cyan-50',
+      textColor: 'text-cyan-600',
+    },
+    {
+      label: t('累计返利额度'),
+      value: stats ? renderQuota(stats.total_rebate_quota || 0) : '-',
+      color: 'bg-teal-50',
+      textColor: 'text-teal-600',
     },
   ];
 
@@ -211,6 +255,26 @@ const AgentDashboard = () => {
       </div>
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
         {cumulativeCards.map((card, idx) => (
+          <Card
+            key={idx}
+            className={`!rounded-2xl border-0 shadow-sm ${card.color}`}
+            bodyStyle={{ padding: '20px 24px' }}
+          >
+            <div className='text-sm text-gray-500 mb-2'>{card.label}</div>
+            <Skeleton loading={loading} active placeholder={<Skeleton.Paragraph rows={1} style={{ width: 80, height: 32 }} />}>
+              <div className={`text-2xl font-bold ${card.textColor}`}>
+                {card.value}
+              </div>
+            </Skeleton>
+          </Card>
+        ))}
+      </div>
+
+      <div className='mb-4'>
+        <Text className='text-base font-semibold'>{t('返利数据')}</Text>
+      </div>
+      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
+        {rebateCards.map((card, idx) => (
           <Card
             key={idx}
             className={`!rounded-2xl border-0 shadow-sm ${card.color}`}

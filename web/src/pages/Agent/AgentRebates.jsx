@@ -53,8 +53,26 @@ const AgentRebates = () => {
   const loadStats = useCallback(async (range) => {
     try {
       const [start, end] = range || getDefaultRange();
-      const startTs = Math.floor(start.getTime() / 1000);
-      const endTs = Math.floor(end.getTime() / 1000);
+      const normalizedStart = new Date(
+        start.getFullYear(),
+        start.getMonth(),
+        start.getDate(),
+        0,
+        0,
+        0,
+        0,
+      );
+      const normalizedEnd = new Date(
+        end.getFullYear(),
+        end.getMonth(),
+        end.getDate(),
+        23,
+        59,
+        59,
+        999,
+      );
+      const startTs = Math.floor(normalizedStart.getTime() / 1000);
+      const endTs = Math.floor(normalizedEnd.getTime() / 1000);
       const res = await API.get(`/api/agent/rebates/stats?start_timestamp=${startTs}&end_timestamp=${endTs}`);
       if (res.data.success) {
         setStats(res.data.data || null);
@@ -66,12 +84,35 @@ const AgentRebates = () => {
     }
   }, []);
 
-  const loadRecords = useCallback(async (page, size, search) => {
+  const loadRecords = useCallback(async (page, size, search, range) => {
     setLoading(true);
     try {
       const params = [`p=${page}`, `page_size=${size}`];
       if (search) {
         params.push(`keyword=${encodeURIComponent(search)}`);
+      }
+      if (range && range.length === 2) {
+        const [start, end] = range;
+        const normalizedStart = new Date(
+          start.getFullYear(),
+          start.getMonth(),
+          start.getDate(),
+          0,
+          0,
+          0,
+          0,
+        );
+        const normalizedEnd = new Date(
+          end.getFullYear(),
+          end.getMonth(),
+          end.getDate(),
+          23,
+          59,
+          59,
+          999,
+        );
+        params.push(`start_timestamp=${Math.floor(normalizedStart.getTime() / 1000)}`);
+        params.push(`end_timestamp=${Math.floor(normalizedEnd.getTime() / 1000)}`);
       }
       const res = await API.get(`/api/agent/rebates?${params.join('&')}`);
       if (res.data.success) {
@@ -89,8 +130,8 @@ const AgentRebates = () => {
   }, []);
 
   useEffect(() => {
-    loadRecords(activePage, pageSize, searchKeyword);
-  }, [activePage, pageSize, searchKeyword, loadRecords]);
+    loadRecords(activePage, pageSize, searchKeyword, dateRange);
+  }, [activePage, pageSize, searchKeyword, dateRange, loadRecords]);
 
   useEffect(() => {
     loadStats(dateRange);
