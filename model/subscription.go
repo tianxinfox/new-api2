@@ -198,12 +198,14 @@ type SubscriptionOrder struct {
 	PlanId int     `json:"plan_id" gorm:"index"`
 	Money  float64 `json:"money"`
 
-	TradeNo       string `json:"trade_no" gorm:"unique;type:varchar(255);index"`
-	WeChatTradeNo string `json:"wechat_trade_no" gorm:"type:varchar(64);default:'';index"`
-	PaymentMethod string `json:"payment_method" gorm:"type:varchar(50)"`
-	Status        string `json:"status"`
-	CreateTime    int64  `json:"create_time"`
-	CompleteTime  int64  `json:"complete_time"`
+	TradeNo            string `json:"trade_no" gorm:"unique;type:varchar(255);index"`
+	WeChatTradeNo      string `json:"wechat_trade_no" gorm:"type:varchar(64);default:'';index"`
+	PaymentMethod      string `json:"payment_method" gorm:"type:varchar(50)"`
+	Status             string `json:"status"`
+	ProviderCodeURL    string `json:"-" gorm:"type:text"`
+	ProviderExpireTime int64  `json:"provider_expire_time" gorm:"index;default:0"`
+	CreateTime         int64  `json:"create_time"`
+	CompleteTime       int64  `json:"complete_time"`
 
 	ProviderPayload string `json:"provider_payload" gorm:"type:text"`
 }
@@ -234,13 +236,15 @@ func CreateSubscriptionOrderWithTopUp(order *SubscriptionOrder) error {
 			return err
 		}
 		topup := &TopUp{
-			UserId:        order.UserId,
-			Amount:        0,
-			Money:         order.Money,
-			TradeNo:       order.TradeNo,
-			PaymentMethod: order.PaymentMethod,
-			CreateTime:    order.CreateTime,
-			Status:        common.TopUpStatusPending,
+			UserId:             order.UserId,
+			Amount:             0,
+			Money:              order.Money,
+			TradeNo:            order.TradeNo,
+			PaymentMethod:      order.PaymentMethod,
+			ProviderCodeURL:    order.ProviderCodeURL,
+			ProviderExpireTime: order.ProviderExpireTime,
+			CreateTime:         order.CreateTime,
+			Status:             common.TopUpStatusPending,
 		}
 		if err := tx.Create(topup).Error; err != nil {
 			return err
@@ -255,6 +259,25 @@ func GetSubscriptionOrderByTradeNo(tradeNo string) (*SubscriptionOrder, error) {
 	}
 	var order SubscriptionOrder
 	if err := DB.Where("trade_no = ?", tradeNo).First(&order).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &order, nil
+}
+
+func GetReusablePendingWeChatSubscriptionOrder(userId int, planId int, now int64) (*SubscriptionOrder, error) {
+	if userId <= 0 || planId <= 0 {
+		return nil, nil
+	}
+	var order SubscriptionOrder
+	minExpireAt := now + reusableWeChatOrderMinTTLSeconds
+	err := DB.Where("user_id = ? AND plan_id = ? AND payment_method = ? AND status = ? AND provider_expire_time > ? AND provider_code_url <> ''",
+		userId, planId, "wechat", common.TopUpStatusPending, minExpireAt).
+		Order("id desc").
+		First(&order).Error
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}

@@ -13,18 +13,22 @@ import (
 )
 
 type TopUp struct {
-	Id            int     `json:"id"`
-	UserId        int     `json:"user_id" gorm:"index"`
-	Amount        int64   `json:"amount"`
-	Money         float64 `json:"money"`
-	TradeNo       string  `json:"trade_no" gorm:"unique;type:varchar(255);index"`
-	WeChatTradeNo string  `json:"wechat_trade_no" gorm:"type:varchar(64);default:'';index"`
-	AlipayTradeNo string  `json:"alipay_trade_no" gorm:"type:varchar(64);default:'';index"`
-	PaymentMethod string  `json:"payment_method" gorm:"type:varchar(50)"`
-	CreateTime    int64   `json:"create_time"`
-	CompleteTime  int64   `json:"complete_time"`
-	Status        string  `json:"status"`
+	Id                 int     `json:"id"`
+	UserId             int     `json:"user_id" gorm:"index"`
+	Amount             int64   `json:"amount"`
+	Money              float64 `json:"money"`
+	TradeNo            string  `json:"trade_no" gorm:"unique;type:varchar(255);index"`
+	WeChatTradeNo      string  `json:"wechat_trade_no" gorm:"type:varchar(64);default:'';index"`
+	AlipayTradeNo      string  `json:"alipay_trade_no" gorm:"type:varchar(64);default:'';index"`
+	PaymentMethod      string  `json:"payment_method" gorm:"type:varchar(50)"`
+	ProviderCodeURL    string  `json:"-" gorm:"type:text"`
+	ProviderExpireTime int64   `json:"provider_expire_time" gorm:"index;default:0"`
+	CreateTime         int64   `json:"create_time"`
+	CompleteTime       int64   `json:"complete_time"`
+	Status             string  `json:"status"`
 }
+
+const reusableWeChatOrderMinTTLSeconds = 60
 
 func (topUp *TopUp) Insert() error {
 	var err error
@@ -56,6 +60,39 @@ func GetTopUpByTradeNo(tradeNo string) *TopUp {
 		return nil
 	}
 	return topUp
+}
+
+func GetReusablePendingWeChatTopUp(userId int, amount int64, now int64) (*TopUp, error) {
+	if userId <= 0 || amount <= 0 {
+		return nil, nil
+	}
+	var topUp TopUp
+	minExpireAt := now + reusableWeChatOrderMinTTLSeconds
+	err := DB.Where("user_id = ? AND payment_method = ? AND amount = ? AND status = ? AND provider_expire_time > ? AND provider_code_url <> ''",
+		userId, "wechat", amount, common.TopUpStatusPending, minExpireAt).
+		Order("id desc").
+		First(&topUp).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &topUp, nil
+}
+
+func ListPendingWeChatTopUpsCreatedBefore(before int64, lastID int, limit int) ([]*TopUp, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	var list []*TopUp
+	query := DB.Where("payment_method = ? AND status = ? AND create_time <= ? AND id > ?", "wechat", common.TopUpStatusPending, before, lastID).
+		Order("id asc").
+		Limit(limit)
+	if err := query.Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
 }
 
 func BindTopUpWeChatTradeNo(tradeNo string, weChatTradeNo string) error {

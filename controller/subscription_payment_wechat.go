@@ -46,6 +46,12 @@ func SubscriptionRequestWeChatPay(c *gin.Context) {
 	}
 
 	userId := c.GetInt("id")
+	// Serialize purchase attempts for the same user/plan in-process to avoid
+	// creating multiple pending orders in concurrent request windows.
+	requestLockKey := fmt.Sprintf("subscription-wechat:%d:%d", userId, plan.Id)
+	LockOrder(requestLockKey)
+	defer UnlockOrder(requestLockKey)
+
 	if plan.MaxPurchasePerUser > 0 {
 		count, err := model.CountUserSubscriptionsByPlan(userId, plan.Id)
 		if err != nil {
@@ -58,10 +64,32 @@ func SubscriptionRequestWeChatPay(c *gin.Context) {
 		}
 	}
 
+	nowUnix := time.Now().Unix()
+	reusableOrder, err := model.GetReusablePendingWeChatSubscriptionOrder(userId, plan.Id, nowUnix)
+	if err != nil {
+		common.SysError(fmt.Sprintf("subscription wechat query reusable order failed: user_id=%d plan_id=%d err=%v", userId, plan.Id, err))
+		common.ApiErrorMsg(c, "支付请求失败，请稍后重试")
+		return
+	}
+	if reusableOrder != nil {
+		scheduleWeChatOrderDelayedCheck(reusableOrder.TradeNo)
+		c.JSON(http.StatusOK, gin.H{
+			"message": "success",
+			"data": gin.H{
+				"code_url":    reusableOrder.ProviderCodeURL,
+				"trade_no":    reusableOrder.TradeNo,
+				"expire_time": reusableOrder.ProviderExpireTime,
+				"reused":      true,
+			},
+		})
+		return
+	}
+
 	tradeNo := buildWeChatOutTradeNo("SWX", userId, time.Now())
 	callBackAddress := service.GetCallbackAddress()
 	notifyURL := callBackAddress + "/api/subscription/wechat/notify"
 	totalFee := weChatMoneyToCents(plan.PriceAmount)
+	expireAt := time.Now().Add(time.Duration(getWeChatNativeExpireMinutes()) * time.Minute)
 	if totalFee < 1 {
 		common.ApiErrorMsg(c, "套餐金额过低")
 		return
@@ -83,6 +111,7 @@ func SubscriptionRequestWeChatPay(c *gin.Context) {
 		Description: core.String(fmt.Sprintf("SUB:%s", plan.Title)),
 		OutTradeNo:  core.String(tradeNo),
 		NotifyUrl:   core.String(notifyURL),
+		TimeExpire:  core.Time(expireAt),
 		Amount: &native.Amount{
 			Total:    core.Int64(totalFee),
 			Currency: core.String("CNY"),
@@ -98,25 +127,30 @@ func SubscriptionRequestWeChatPay(c *gin.Context) {
 	}
 
 	order := &model.SubscriptionOrder{
-		UserId:        userId,
-		PlanId:        plan.Id,
-		Money:         plan.PriceAmount,
-		TradeNo:       tradeNo,
-		PaymentMethod: PaymentMethodWeChat,
-		CreateTime:    time.Now().Unix(),
-		Status:        common.TopUpStatusPending,
+		UserId:             userId,
+		PlanId:             plan.Id,
+		Money:              plan.PriceAmount,
+		TradeNo:            tradeNo,
+		PaymentMethod:      PaymentMethodWeChat,
+		ProviderCodeURL:    *prepayResp.CodeUrl,
+		ProviderExpireTime: expireAt.Unix(),
+		CreateTime:         time.Now().Unix(),
+		Status:             common.TopUpStatusPending,
 	}
 	if err = model.CreateSubscriptionOrderWithTopUp(order); err != nil {
 		common.SysError(fmt.Sprintf("subscription wechat pay create order with topup failed: user_id=%d plan_id=%d out_trade_no=%s err=%v", userId, plan.Id, tradeNo, err))
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "创建订单失败"})
 		return
 	}
+	scheduleWeChatOrderDelayedCheck(tradeNo)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "success",
 		"data": gin.H{
-			"code_url": *prepayResp.CodeUrl,
-			"trade_no": tradeNo,
+			"code_url":    *prepayResp.CodeUrl,
+			"trade_no":    tradeNo,
+			"expire_time": expireAt.Unix(),
+			"reused":      false,
 		},
 	})
 }

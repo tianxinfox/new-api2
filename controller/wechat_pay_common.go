@@ -27,6 +27,9 @@ import (
 
 const PaymentMethodWeChat = "wechat"
 const CNYToCentsMultiplier int64 = 100
+const defaultWeChatNativeExpireMinutes = 5
+const defaultWeChatDelayedCheckMinutes = 6
+const defaultWeChatPendingSweepHours = 24
 
 var weChatPrivateKeyCache struct {
 	mu     sync.RWMutex
@@ -114,6 +117,30 @@ func weChatMoneyToCents(money float64) int64 {
 		Mul(decimal.NewFromInt(CNYToCentsMultiplier)).
 		Round(0).
 		IntPart()
+}
+
+func getWeChatNativeExpireMinutes() int {
+	expireMinutes := common.GetEnvOrDefault("WECHAT_NATIVE_EXPIRE_MINUTES", defaultWeChatNativeExpireMinutes)
+	if expireMinutes <= 0 {
+		return defaultWeChatNativeExpireMinutes
+	}
+	return expireMinutes
+}
+
+func getWeChatDelayedCheckMinutes() int {
+	delayedMinutes := common.GetEnvOrDefault("WECHAT_DELAYED_CHECK_MINUTES", defaultWeChatDelayedCheckMinutes)
+	if delayedMinutes <= 0 {
+		return defaultWeChatDelayedCheckMinutes
+	}
+	return delayedMinutes
+}
+
+func getWeChatPendingSweepHours() int {
+	sweepHours := common.GetEnvOrDefault("WECHAT_PENDING_SWEEP_HOURS", defaultWeChatPendingSweepHours)
+	if sweepHours <= 0 {
+		return defaultWeChatPendingSweepHours
+	}
+	return sweepHours
 }
 
 // buildWeChatOutTradeNo builds a compact merchant order number for WeChat Pay.

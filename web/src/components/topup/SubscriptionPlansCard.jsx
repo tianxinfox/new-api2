@@ -96,6 +96,10 @@ const SubscriptionPlansCard = ({
   const [wechatPayOpen, setWechatPayOpen] = useState(false);
   const [wechatPayCodeUrl, setWechatPayCodeUrl] = useState('');
   const [wechatPayTradeNo, setWechatPayTradeNo] = useState('');
+  const [wechatPayExpireTime, setWechatPayExpireTime] = useState(0);
+  const [wechatPayPlanId, setWechatPayPlanId] = useState(0);
+  const [wechatPayExpired, setWechatPayExpired] = useState(false);
+  const [wechatPayRefreshing, setWechatPayRefreshing] = useState(false);
   const [wechatCheckLoading, setWechatCheckLoading] = useState(false);
   const wechatPayPollingRef = useRef(null);
   const [alipayPrecreateOpen, setAlipayPrecreateOpen] = useState(false);
@@ -197,6 +201,9 @@ const SubscriptionPlansCard = ({
       if (res.data?.message === 'success') {
         setWechatPayCodeUrl(res.data.data?.code_url || '');
         setWechatPayTradeNo(res.data.data?.trade_no || '');
+        setWechatPayExpireTime(Number(res.data.data?.expire_time || 0));
+        setWechatPayPlanId(Number(selectedPlan?.plan?.id || 0));
+        setWechatPayExpired(false);
         setWechatPayOpen(true);
         showSuccess(t('已发起支付'));
         closeBuy();
@@ -298,6 +305,40 @@ const SubscriptionPlansCard = ({
     setWechatPayOpen(false);
     setWechatPayCodeUrl('');
     setWechatPayTradeNo('');
+    setWechatPayExpireTime(0);
+    setWechatPayPlanId(0);
+    setWechatPayExpired(false);
+    setWechatPayRefreshing(false);
+  };
+
+  const handleRefreshWeChatPayQr = async () => {
+    if (!wechatPayPlanId) {
+      showError(t('支付请求失败'));
+      return;
+    }
+    setWechatPayRefreshing(true);
+    try {
+      const res = await API.post('/api/subscription/wechat/pay', {
+        plan_id: wechatPayPlanId,
+      });
+      if (res.data?.message === 'success') {
+        setWechatPayCodeUrl(res.data.data?.code_url || '');
+        setWechatPayTradeNo(res.data.data?.trade_no || '');
+        setWechatPayExpireTime(Number(res.data.data?.expire_time || 0));
+        setWechatPayExpired(false);
+        showSuccess(t('二维码已刷新'));
+      } else {
+        const errorMsg =
+          typeof res.data?.data === 'string'
+            ? res.data.data
+            : res.data?.message || t('支付失败');
+        showError(errorMsg);
+      }
+    } catch (e) {
+      showError(t('支付请求失败'));
+    } finally {
+      setWechatPayRefreshing(false);
+    }
   };
 
   const closeAlipayScanModal = () => {
@@ -360,6 +401,19 @@ const SubscriptionPlansCard = ({
     let timeoutRef = null;
     const pollOnce = async () => {
       if (stopped) return;
+      if (
+        wechatPayExpireTime > 0 &&
+        Date.now() >= wechatPayExpireTime * 1000
+      ) {
+        clearPolling();
+        if (timeoutRef) {
+          clearTimeout(timeoutRef);
+          timeoutRef = null;
+        }
+        if (stopped) return;
+        setWechatPayExpired(true);
+        return;
+      }
       try {
         const status = await querySubscriptionTradeStatus(wechatPayTradeNo);
         if (status === 'success') {
@@ -369,9 +423,7 @@ const SubscriptionPlansCard = ({
             timeoutRef = null;
           }
           if (stopped) return;
-          setWechatPayOpen(false);
-          setWechatPayCodeUrl('');
-          setWechatPayTradeNo('');
+          closeWeChatScanModal();
           showSuccess(t('Payment successful'));
           await reloadSubscriptionSelf?.();
           return;
@@ -387,9 +439,7 @@ const SubscriptionPlansCard = ({
             timeoutRef = null;
           }
           if (stopped) return;
-          setWechatPayOpen(false);
-          setWechatPayCodeUrl('');
-          setWechatPayTradeNo('');
+          closeWeChatScanModal();
           showError(t(status === 'unpaid' ? '未支付' : '支付失败'));
         }
       } catch (e) {
@@ -398,7 +448,7 @@ const SubscriptionPlansCard = ({
     };
 
     pollOnce();
-    wechatPayPollingRef.current = setInterval(pollOnce, 2000);
+    wechatPayPollingRef.current = setInterval(pollOnce, 3000);
     timeoutRef = setTimeout(() => {
       clearPolling();
       if (stopped) return;
@@ -412,7 +462,7 @@ const SubscriptionPlansCard = ({
       }
       clearPolling();
     };
-  }, [wechatPayOpen, wechatPayTradeNo, reloadSubscriptionSelf, t]);
+  }, [wechatPayOpen, wechatPayTradeNo, wechatPayExpireTime, reloadSubscriptionSelf, t]);
 
   useEffect(() => {
     const clearPolling = () => {
@@ -469,7 +519,7 @@ const SubscriptionPlansCard = ({
     };
 
     pollOnce();
-    alipayPrecreatePollingRef.current = setInterval(pollOnce, 2000);
+    alipayPrecreatePollingRef.current = setInterval(pollOnce, 3000);
     timeoutRef = setTimeout(() => {
       clearPolling();
       if (stopped) return;
@@ -972,7 +1022,16 @@ const SubscriptionPlansCard = ({
         qrCode={wechatPayCodeUrl}
         instruction={t('请使用手机打开微信扫描二维码完成支付')}
         orderId={wechatPayTradeNo}
-        orderLabel={t('Order ID')}
+        expireTime={wechatPayExpireTime}
+        expired={wechatPayExpired}
+        refreshing={wechatPayRefreshing}
+        onRefresh={handleRefreshWeChatPayQr}
+        countdownLabel={t('剩余时间')}
+        orderLabel={t('订单号')}
+        expireLabel={t('订单过期时间')}
+        expiredText={t('二维码已过期')}
+        refreshText={t('点击刷新')}
+        refreshingText={t('刷新中...')}
         onCancel={closeWeChatScanModal}
         onCheckPaid={handleManualCheckWeChat}
         checking={wechatCheckLoading}
@@ -995,4 +1054,3 @@ const SubscriptionPlansCard = ({
 };
 
 export default SubscriptionPlansCard;
-

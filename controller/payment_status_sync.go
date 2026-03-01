@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -67,8 +68,30 @@ func syncTopUpStatusWithProvider(ctx context.Context, topUp *model.TopUp) error 
 		}
 		status := mapWeChatTradeStateToTopUpStatus(*tx.TradeState)
 		payload := common.GetJsonString(tx)
+		// If provider still reports NOTPAY after local expiry, force-close then
+		// converge to unpaid to avoid long-lived pending records.
+		if status == common.TopUpStatusPending &&
+			strings.EqualFold(strings.TrimSpace(*tx.TradeState), "NOTPAY") &&
+			topUp.ProviderExpireTime > 0 &&
+			time.Now().Unix() >= topUp.ProviderExpireTime+60 {
+			if closeErr := closeWeChatOrderByTradeNo(ctx, topUp.TradeNo); closeErr != nil {
+				common.SysError(fmt.Sprintf("wechat close overdue notpay order failed: trade_no=%s err=%v", topUp.TradeNo, closeErr))
+			}
+			status = common.TopUpStatusUnpaid
+		}
 		switch status {
 		case common.TopUpStatusSuccess:
+			if tx.TransactionId != nil && strings.TrimSpace(*tx.TransactionId) != "" {
+				weChatTradeNo := strings.TrimSpace(*tx.TransactionId)
+				if bindErr := model.BindTopUpWeChatTradeNo(topUp.TradeNo, weChatTradeNo); bindErr != nil {
+					return bindErr
+				}
+				if isSubscriptionTopUp {
+					if bindErr := model.BindSubscriptionWeChatTradeNo(topUp.TradeNo, weChatTradeNo); bindErr != nil {
+						return bindErr
+					}
+				}
+			}
 			if isSubscriptionTopUp {
 				if err = model.CompleteSubscriptionOrder(topUp.TradeNo, payload); err != nil {
 					if errors.Is(err, model.ErrSubscriptionOrderStatusInvalid) {

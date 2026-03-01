@@ -113,6 +113,8 @@ func main() {
 	service.StartSubscriptionQuotaResetTask()
 	// Agent rebate retry task for compensating failed best-effort settlements
 	service.StartAgentRebateRetryTask()
+	// WeChat order delayed check and stale pending cleanup task.
+	controller.StartWeChatOrderMaintenanceTask()
 
 	// Wire task polling adaptor factory (breaks service -> relay import cycle)
 	service.GetTaskAdaptorFunc = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {

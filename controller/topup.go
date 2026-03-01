@@ -458,9 +458,9 @@ func GetAllTopUps(c *gin.Context) {
 
 func refreshPendingTopUpStatuses(ctx context.Context, topups []*model.TopUp) {
 	const (
-		maxSyncItems   = 3
-		maxParallelism = 3
-		syncTimeout    = 2 * time.Second
+		maxSyncItems   = 20
+		maxParallelism = 5
+		syncTimeout    = 5 * time.Second
 	)
 
 	candidates := make([]*model.TopUp, 0, maxSyncItems)

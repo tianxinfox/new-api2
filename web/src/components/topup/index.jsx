@@ -89,6 +89,10 @@ const TopUp = () => {
   const [wechatPayOpen, setWechatPayOpen] = useState(false);
   const [wechatPayCodeUrl, setWechatPayCodeUrl] = useState('');
   const [wechatPayTradeNo, setWechatPayTradeNo] = useState('');
+  const [wechatPayExpireTime, setWechatPayExpireTime] = useState(0);
+  const [wechatPayAmount, setWechatPayAmount] = useState(0);
+  const [wechatPayExpired, setWechatPayExpired] = useState(false);
+  const [wechatPayRefreshing, setWechatPayRefreshing] = useState(false);
   const [wechatCheckLoading, setWechatCheckLoading] = useState(false);
   const wechatPayPollingRef = useRef(null);
   const [alipayPrecreateOpen, setAlipayPrecreateOpen] = useState(false);
@@ -290,6 +294,9 @@ const TopUp = () => {
           } else if (payWay === 'wechat') {
             setWechatPayCodeUrl(data.code_url || '');
             setWechatPayTradeNo(data.trade_no || '');
+            setWechatPayExpireTime(Number(data.expire_time || 0));
+            setWechatPayAmount(parseInt(topUpCount));
+            setWechatPayExpired(false);
             setWechatPayOpen(true);
           } else {
             let params = data;
@@ -701,6 +708,42 @@ const TopUp = () => {
     setWechatPayOpen(false);
     setWechatPayCodeUrl('');
     setWechatPayTradeNo('');
+    setWechatPayExpireTime(0);
+    setWechatPayAmount(0);
+    setWechatPayExpired(false);
+    setWechatPayRefreshing(false);
+  };
+
+  const handleRefreshWeChatPayQr = async () => {
+    const amountToPay = parseInt(wechatPayAmount || topUpCount || 0);
+    if (!amountToPay || amountToPay < minTopUp) {
+      showError(t('Top-up amount cannot be less than ') + minTopUp);
+      return;
+    }
+    setWechatPayRefreshing(true);
+    try {
+      const res = await API.post('/api/user/wechat/pay', {
+        amount: amountToPay,
+        payment_method: 'wechat',
+      });
+      const { message, data } = res?.data || {};
+      if (message !== 'success' || !data?.code_url || !data?.trade_no) {
+        const errorMsg =
+          typeof data === 'string' ? data : message || t('Payment failed');
+        showError(errorMsg);
+        return;
+      }
+      setWechatPayCodeUrl(data.code_url);
+      setWechatPayTradeNo(data.trade_no);
+      setWechatPayExpireTime(Number(data.expire_time || 0));
+      setWechatPayAmount(amountToPay);
+      setWechatPayExpired(false);
+      showSuccess(t('二维码已刷新'));
+    } catch (e) {
+      showError(t('支付请求失败'));
+    } finally {
+      setWechatPayRefreshing(false);
+    }
   };
   const handleAlipayPrecreateCancel = () => {
     setAlipayPrecreateOpen(false);
@@ -774,6 +817,19 @@ const TopUp = () => {
     let timeoutRef = null;
     const pollOnce = async () => {
       if (stopped) return;
+      if (
+        wechatPayExpireTime > 0 &&
+        Date.now() >= wechatPayExpireTime * 1000
+      ) {
+        clearPolling();
+        if (timeoutRef) {
+          clearTimeout(timeoutRef);
+          timeoutRef = null;
+        }
+        if (stopped) return;
+        setWechatPayExpired(true);
+        return;
+      }
       try {
         const status = await queryTopupTradeStatus(wechatPayTradeNo);
         if (status === 'success') {
@@ -783,7 +839,7 @@ const TopUp = () => {
             timeoutRef = null;
           }
           if (stopped) return;
-          setWechatPayOpen(false);
+          handleWeChatPayCancel();
           showSuccess(t('Payment successful'));
           getUserQuota().then();
           getTopupInfo().then();
@@ -800,7 +856,7 @@ const TopUp = () => {
             timeoutRef = null;
           }
           if (stopped) return;
-          setWechatPayOpen(false);
+          handleWeChatPayCancel();
           showError(t(status === 'unpaid' ? '未支付' : '支付失败'));
         }
       } catch (e) {
@@ -809,7 +865,7 @@ const TopUp = () => {
     };
 
     pollOnce();
-    wechatPayPollingRef.current = setInterval(pollOnce, 2000);
+    wechatPayPollingRef.current = setInterval(pollOnce, 3000);
     timeoutRef = setTimeout(() => {
       clearPolling();
       if (stopped) return;
@@ -823,7 +879,7 @@ const TopUp = () => {
       }
       clearPolling();
     };
-  }, [wechatPayOpen, wechatPayTradeNo, t]);
+  }, [wechatPayOpen, wechatPayTradeNo, wechatPayExpireTime, t]);
 
   useEffect(() => {
     const clearPolling = () => {
@@ -877,7 +933,7 @@ const TopUp = () => {
     };
 
     pollOnce();
-    alipayPrecreatePollingRef.current = setInterval(pollOnce, 2000);
+    alipayPrecreatePollingRef.current = setInterval(pollOnce, 3000);
     timeoutRef = setTimeout(() => {
       clearPolling();
       if (stopped) return;
@@ -984,7 +1040,16 @@ const TopUp = () => {
         qrCode={wechatPayCodeUrl}
         instruction={t('请使用手机打开微信扫描二维码完成支付')}
         orderId={wechatPayTradeNo}
-        orderLabel={t('Order ID')}
+        expireTime={wechatPayExpireTime}
+        expired={wechatPayExpired}
+        refreshing={wechatPayRefreshing}
+        onRefresh={handleRefreshWeChatPayQr}
+        countdownLabel={t('剩余时间')}
+        orderLabel={t('订单号')}
+        expireLabel={t('订单过期时间')}
+        expiredText={t('二维码已过期')}
+        refreshText={t('点击刷新')}
+        refreshingText={t('刷新中...')}
         onCancel={handleWeChatPayCancel}
         onCheckPaid={handleManualCheckWeChat}
         checking={wechatCheckLoading}
@@ -1064,5 +1129,3 @@ const TopUp = () => {
 };
 
 export default TopUp;
-
-

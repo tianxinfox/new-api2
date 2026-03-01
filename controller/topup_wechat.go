@@ -76,10 +76,39 @@ func RequestWeChatPay(c *gin.Context) {
 		return
 	}
 
+	amount := req.Amount
+	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
+		dAmount := decimal.NewFromInt(amount)
+		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
+		amount = dAmount.Div(dQuotaPerUnit).IntPart()
+	}
+
+	nowUnix := time.Now().Unix()
+	reusableTopUp, err := model.GetReusablePendingWeChatTopUp(userId, amount, nowUnix)
+	if err != nil {
+		common.SysError(fmt.Sprintf("wechat query reusable topup failed: user_id=%d amount=%d err=%v", userId, amount, err))
+		writeWeChatPayError(c, "支付请求失败，请稍后重试")
+		return
+	}
+	if reusableTopUp != nil {
+		scheduleWeChatOrderDelayedCheck(reusableTopUp.TradeNo)
+		c.JSON(http.StatusOK, gin.H{
+			"message": "success",
+			"data": gin.H{
+				"code_url":    reusableTopUp.ProviderCodeURL,
+				"trade_no":    reusableTopUp.TradeNo,
+				"expire_time": reusableTopUp.ProviderExpireTime,
+				"reused":      true,
+			},
+		})
+		return
+	}
+
 	now := time.Now()
 	tradeNo := buildWeChatOutTradeNo("WX", userId, now)
 	callBackAddress := service.GetCallbackAddress()
 	notifyURL := callBackAddress + "/api/user/wechat/notify"
+	expireAt := now.Add(time.Duration(getWeChatNativeExpireMinutes()) * time.Minute)
 
 	client, err := getWeChatPayClient(c.Request.Context())
 	if err != nil {
@@ -97,6 +126,7 @@ func RequestWeChatPay(c *gin.Context) {
 		Description: core.String(fmt.Sprintf("TUC%d", req.Amount)),
 		OutTradeNo:  core.String(tradeNo),
 		NotifyUrl:   core.String(notifyURL),
+		TimeExpire:  core.Time(expireAt),
 		Amount: &native.Amount{
 			Total:    core.Int64(totalFee),
 			Currency: core.String("CNY"),
@@ -111,32 +141,31 @@ func RequestWeChatPay(c *gin.Context) {
 		return
 	}
 
-	amount := req.Amount
-	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
-		dAmount := decimal.NewFromInt(amount)
-		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
-		amount = dAmount.Div(dQuotaPerUnit).IntPart()
-	}
 	topUp := &model.TopUp{
-		UserId:        userId,
-		Amount:        amount,
-		Money:         payMoney,
-		TradeNo:       tradeNo,
-		PaymentMethod: PaymentMethodWeChat,
-		CreateTime:    time.Now().Unix(),
-		Status:        common.TopUpStatusPending,
+		UserId:             userId,
+		Amount:             amount,
+		Money:              payMoney,
+		TradeNo:            tradeNo,
+		PaymentMethod:      PaymentMethodWeChat,
+		ProviderCodeURL:    *prepayResp.CodeUrl,
+		ProviderExpireTime: expireAt.Unix(),
+		CreateTime:         time.Now().Unix(),
+		Status:             common.TopUpStatusPending,
 	}
 	if err = topUp.Insert(); err != nil {
 		common.SysError(fmt.Sprintf("wechat pay insert topup failed: user_id=%d out_trade_no=%s err=%v", userId, tradeNo, err))
 		writeWeChatPayError(c, "支付请求失败，请稍后重试")
 		return
 	}
+	scheduleWeChatOrderDelayedCheck(tradeNo)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "success",
 		"data": gin.H{
-			"code_url": *prepayResp.CodeUrl,
-			"trade_no": tradeNo,
+			"code_url":    *prepayResp.CodeUrl,
+			"trade_no":    tradeNo,
+			"expire_time": expireAt.Unix(),
+			"reused":      false,
 		},
 	})
 }

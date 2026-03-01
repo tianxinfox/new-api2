@@ -3344,6 +3344,10 @@
     "请使用手机打开微信扫描二维码完成支付": "Vui lòng mở WeChat trên điện thoại và quét mã QR để hoàn tất thanh toán",
     "请使用手机打开支付宝扫描二维码完成支付": "Vui lòng mở Alipay trên điện thoại và quét mã QR để hoàn tất thanh toán",
     "已完成支付": "Đã thanh toán",
+    "订单过期时间": "Thời gian hết hạn đơn hàng",
+    "二维码已过期": "Mã QR đã hết hạn",
+    "点击刷新": "Nhấn để làm mới",
+    "刷新中...": "Đang làm mới...",
     "支付状态尚未更新，请稍后再试": "Trạng thái thanh toán chưa cập nhật, vui lòng thử lại sau.",
     "总代理数": "Tổng số đại lý",
     "总下级用户": "Tổng số người dùng cấp dưới",
@@ -3367,4 +3371,3 @@
     "检测到密钥/证书为空输入，已自动跳过覆盖以保护现有配置。": "Phát hiện nhập khóa/chứng chỉ trống; đã bỏ qua ghi đè để bảo vệ cấu hình hiện có."
   }
 }
-
