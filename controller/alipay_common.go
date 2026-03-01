@@ -13,6 +13,8 @@ import (
 	alipay "github.com/smartwalle/alipay/v3"
 )
 
+const defaultAlipayOrderExpireMinutes = 30
+
 type alipayClientCache struct {
 	mu         sync.RWMutex
 	appID      string
@@ -196,4 +198,19 @@ func getAlipayPreCreateFailureMessage(err error, rsp *alipay.TradePreCreateRsp) 
 		return fmt.Sprintf("alipay precreate failed: [%s] %s", rsp.Code, rsp.Msg)
 	}
 	return "alipay precreate failed"
+}
+
+func getAlipayOrderExpireMinutes() int {
+	minutes := setting.AlipayOrderExpireMinutes
+	if minutes <= 0 {
+		minutes = common.GetEnvOrDefault("ALIPAY_ORDER_EXPIRE_MINUTES", defaultAlipayOrderExpireMinutes)
+	}
+	if minutes <= 0 {
+		return defaultAlipayOrderExpireMinutes
+	}
+	return minutes
+}
+
+func getAlipayTimeoutExpress() string {
+	return fmt.Sprintf("%dm", getAlipayOrderExpireMinutes())
 }

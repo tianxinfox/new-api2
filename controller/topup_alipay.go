@@ -71,9 +71,13 @@ func RequestAlipayPay(c *gin.Context) {
 		common.ApiErrorMsgLegacy(c, "failed to initialize alipay client")
 		return
 	}
-	tradeNo := fmt.Sprintf("ALIUSR%dNO%s%d", userID, common.GetRandomString(6), time.Now().Unix())
+	now := time.Now()
+	createTime := now.Unix()
+	tradeNo := fmt.Sprintf("ALIUSR%dNO%s%d", userID, common.GetRandomString(6), createTime)
 	callBackAddress := service.GetCallbackAddress()
 	payMode := getAlipayPayMode()
+	expireAt := now.Add(time.Duration(getAlipayOrderExpireMinutes()) * time.Minute)
+	timeoutExpress := getAlipayTimeoutExpress()
 	trade := alipay.Trade{
 		NotifyURL:      callBackAddress + "/api/user/alipay/notify",
 		ReturnURL:      system_setting.ServerAddress + "/console/topup",
@@ -81,7 +85,7 @@ func RequestAlipayPay(c *gin.Context) {
 		OutTradeNo:     tradeNo,
 		TotalAmount:    decimal.NewFromFloat(payMoney).StringFixed(2),
 		ProductCode:    getAlipayProductCode(payMode),
-		TimeoutExpress: "30m",
+		TimeoutExpress: timeoutExpress,
 	}
 	payLink := ""
 	qrCode := ""
@@ -110,13 +114,15 @@ func RequestAlipayPay(c *gin.Context) {
 		amount = dAmount.Div(dQuotaPerUnit).IntPart()
 	}
 	topUp := &model.TopUp{
-		UserId:        userID,
-		Amount:        amount,
-		Money:         payMoney,
-		TradeNo:       tradeNo,
-		PaymentMethod: PaymentMethodAlipay,
-		CreateTime:    time.Now().Unix(),
-		Status:        common.TopUpStatusPending,
+		UserId:             userID,
+		Amount:             amount,
+		Money:              payMoney,
+		TradeNo:            tradeNo,
+		PaymentMethod:      PaymentMethodAlipay,
+		ProviderCodeURL:    qrCode,
+		ProviderExpireTime: expireAt.Unix(),
+		CreateTime:         createTime,
+		Status:             common.TopUpStatusPending,
 	}
 	if err = topUp.Insert(); err != nil {
 		common.SysError(fmt.Sprintf("alipay pay insert topup failed: user_id=%d trade_no=%s err=%v", userID, tradeNo, err))

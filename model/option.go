@@ -95,6 +95,8 @@ func InitOptionMap() {
 	common.OptionMap["WeChatPayAPIv3Key"] = setting.WeChatPayAPIv3Key
 	common.OptionMap["WeChatPayMchSerial"] = setting.WeChatPayMchSerial
 	common.OptionMap["WeChatPayPrivateKey"] = setting.WeChatPayPrivateKey
+	common.OptionMap["WeChatNativeExpireMinutes"] = strconv.Itoa(setting.WeChatNativeExpireMinutes)
+	common.OptionMap["WeChatDelayedCheckMinutes"] = strconv.Itoa(setting.WeChatDelayedCheckMinutes)
 	common.OptionMap["AlipayEnabled"] = strconv.FormatBool(setting.AlipayEnabled)
 	common.OptionMap["AlipayAppID"] = setting.AlipayAppID
 	common.OptionMap["AlipayPrivateKey"] = setting.AlipayPrivateKey
@@ -105,6 +107,8 @@ func InitOptionMap() {
 	common.OptionMap["AlipayRootCert"] = setting.AlipayRootCert
 	common.OptionMap["AlipaySandbox"] = strconv.FormatBool(setting.AlipaySandbox)
 	common.OptionMap["AlipayPayMode"] = setting.AlipayPayMode
+	common.OptionMap["AlipayOrderExpireMinutes"] = strconv.Itoa(setting.AlipayOrderExpireMinutes)
+	common.OptionMap["AlipayPendingSweepDelayMinutes"] = strconv.Itoa(setting.AlipayPendingSweepDelayMinutes)
 	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
 	common.OptionMap["Chats"] = setting.Chats2JsonString()
 	common.OptionMap["AutoGroups"] = setting.AutoGroups2JsonString()
@@ -386,6 +390,16 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.WeChatPayMchSerial = value
 	case "WeChatPayPrivateKey":
 		setting.WeChatPayPrivateKey = value
+	case "WeChatNativeExpireMinutes":
+		setting.WeChatNativeExpireMinutes, _ = strconv.Atoi(value)
+		if setting.WeChatNativeExpireMinutes <= 0 {
+			setting.WeChatNativeExpireMinutes = 5
+		}
+	case "WeChatDelayedCheckMinutes":
+		setting.WeChatDelayedCheckMinutes, _ = strconv.Atoi(value)
+		if setting.WeChatDelayedCheckMinutes <= 0 {
+			setting.WeChatDelayedCheckMinutes = 6
+		}
 	case "AlipayEnabled":
 		setting.AlipayEnabled = value == "true"
 	case "AlipayAppID":
@@ -410,6 +424,16 @@ func updateOptionMap(key string, value string) (err error) {
 			value = setting.AlipayPayModePage
 		}
 		setting.AlipayPayMode = value
+	case "AlipayOrderExpireMinutes":
+		setting.AlipayOrderExpireMinutes, _ = strconv.Atoi(value)
+		if setting.AlipayOrderExpireMinutes <= 0 {
+			setting.AlipayOrderExpireMinutes = 30
+		}
+	case "AlipayPendingSweepDelayMinutes":
+		setting.AlipayPendingSweepDelayMinutes, _ = strconv.Atoi(value)
+		if setting.AlipayPendingSweepDelayMinutes <= 0 {
+			setting.AlipayPendingSweepDelayMinutes = 30
+		}
 	case "TopupGroupRatio":
 		err = common.UpdateTopupGroupRatioByJSONString(value)
 	case "GitHubClientId":

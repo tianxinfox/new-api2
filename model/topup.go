@@ -95,6 +95,20 @@ func ListPendingWeChatTopUpsCreatedBefore(before int64, lastID int, limit int) (
 	return list, nil
 }
 
+func ListPendingAlipayTopUpsCreatedBefore(before int64, lastID int, limit int) ([]*TopUp, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	var list []*TopUp
+	query := DB.Where("payment_method = ? AND status = ? AND create_time <= ? AND id > ?", "alipay", common.TopUpStatusPending, before, lastID).
+		Order("id asc").
+		Limit(limit)
+	if err := query.Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
 func BindTopUpWeChatTradeNo(tradeNo string, weChatTradeNo string) error {
 	if strings.TrimSpace(tradeNo) == "" {
 		return errors.New("tradeNo is empty")

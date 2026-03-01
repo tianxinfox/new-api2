@@ -120,7 +120,10 @@ func weChatMoneyToCents(money float64) int64 {
 }
 
 func getWeChatNativeExpireMinutes() int {
-	expireMinutes := common.GetEnvOrDefault("WECHAT_NATIVE_EXPIRE_MINUTES", defaultWeChatNativeExpireMinutes)
+	expireMinutes := setting.WeChatNativeExpireMinutes
+	if expireMinutes <= 0 {
+		expireMinutes = common.GetEnvOrDefault("WECHAT_NATIVE_EXPIRE_MINUTES", defaultWeChatNativeExpireMinutes)
+	}
 	if expireMinutes <= 0 {
 		return defaultWeChatNativeExpireMinutes
 	}
@@ -128,7 +131,10 @@ func getWeChatNativeExpireMinutes() int {
 }
 
 func getWeChatDelayedCheckMinutes() int {
-	delayedMinutes := common.GetEnvOrDefault("WECHAT_DELAYED_CHECK_MINUTES", defaultWeChatDelayedCheckMinutes)
+	delayedMinutes := setting.WeChatDelayedCheckMinutes
+	if delayedMinutes <= 0 {
+		delayedMinutes = common.GetEnvOrDefault("WECHAT_DELAYED_CHECK_MINUTES", defaultWeChatDelayedCheckMinutes)
+	}
 	if delayedMinutes <= 0 {
 		return defaultWeChatDelayedCheckMinutes
 	}

@@ -34,6 +34,8 @@ export default function SettingsPaymentGatewayWeChat(props) {
     WeChatPayAPIv3Key: '',
     WeChatPayMchSerial: '',
     WeChatPayPrivateKey: '',
+    WeChatNativeExpireMinutes: 5,
+    WeChatDelayedCheckMinutes: 6,
   });
   const [originInputs, setOriginInputs] = useState({});
   const formApiRef = useRef(null);
@@ -47,6 +49,8 @@ export default function SettingsPaymentGatewayWeChat(props) {
         WeChatPayAPIv3Key: props.options.WeChatPayAPIv3Key || '',
         WeChatPayMchSerial: props.options.WeChatPayMchSerial || '',
         WeChatPayPrivateKey: props.options.WeChatPayPrivateKey || '',
+        WeChatNativeExpireMinutes: props.options.WeChatNativeExpireMinutes || 5,
+        WeChatDelayedCheckMinutes: props.options.WeChatDelayedCheckMinutes || 6,
       };
       setInputs(currentInputs);
       setOriginInputs({ ...currentInputs });
@@ -76,6 +80,16 @@ export default function SettingsPaymentGatewayWeChat(props) {
         const prevValue = originInputs[key] ?? '';
         if (nextValue !== prevValue) {
           options.push({ key, value: nextValue });
+        }
+      });
+      ['WeChatNativeExpireMinutes', 'WeChatDelayedCheckMinutes'].forEach((key) => {
+        const nextValue = Number(inputs[key]);
+        const prevValue = Number(originInputs[key]);
+        if (!Number.isFinite(nextValue) || nextValue <= 0) {
+          return;
+        }
+        if (nextValue !== prevValue) {
+          options.push({ key, value: String(Math.floor(nextValue)) });
         }
       });
       if (options.length === 0) {
@@ -153,6 +167,24 @@ export default function SettingsPaymentGatewayWeChat(props) {
                 field='WeChatPayMchSerial'
                 label={t('商户证书序列号')}
                 placeholder={t('证书序列号')}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+              <Form.InputNumber
+                field='WeChatNativeExpireMinutes'
+                label={t('二维码过期时间（分钟）')}
+                min={1}
+                step={1}
+              />
+            </Col>
+          </Row>
+          <Row gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }} style={{ marginTop: 16 }}>
+            <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+              <Form.InputNumber
+                field='WeChatDelayedCheckMinutes'
+                label={t('延迟检查时间（分钟）')}
+                min={1}
+                step={1}
               />
             </Col>
           </Row>

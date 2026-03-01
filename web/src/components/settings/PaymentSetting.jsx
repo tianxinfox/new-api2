@@ -56,10 +56,14 @@ const PaymentSetting = () => {
     WeChatPayAPIv3Key: '',
     WeChatPayMchSerial: '',
     WeChatPayPrivateKey: '',
+    WeChatNativeExpireMinutes: 5,
+    WeChatDelayedCheckMinutes: 6,
     AlipayEnabled: false,
     AlipaySandbox: false,
     AlipayUseCertificateMode: false,
     AlipayPayMode: 'page',
+    AlipayOrderExpireMinutes: 30,
+    AlipayPendingSweepDelayMinutes: 30,
     AlipayAppID: '',
     AlipayPrivateKey: '',
     AlipayPublicKey: '',
@@ -117,6 +121,10 @@ const PaymentSetting = () => {
           case 'MinTopUp':
           case 'StripeUnitPrice':
           case 'StripeMinTopUp':
+          case 'WeChatNativeExpireMinutes':
+          case 'WeChatDelayedCheckMinutes':
+          case 'AlipayOrderExpireMinutes':
+          case 'AlipayPendingSweepDelayMinutes':
             newInputs[item.key] = parseFloat(item.value);
             break;
           case 'AlipaySandbox':

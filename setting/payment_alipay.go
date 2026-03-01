@@ -15,3 +15,5 @@ var AlipayAlipayPublicCert = ""
 var AlipayRootCert = ""
 var AlipaySandbox = false
 var AlipayPayMode = AlipayPayModePage
+var AlipayOrderExpireMinutes = 30
+var AlipayPendingSweepDelayMinutes = 30

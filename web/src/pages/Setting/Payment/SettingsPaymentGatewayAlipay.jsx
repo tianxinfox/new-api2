@@ -32,6 +32,8 @@ export default function SettingsPaymentGatewayAlipay(props) {
     AlipaySandbox: false,
     AlipayUseCertificateMode: false,
     AlipayPayMode: 'page',
+    AlipayOrderExpireMinutes: 30,
+    AlipayPendingSweepDelayMinutes: 30,
     AlipayAppID: '',
     AlipayPrivateKey: '',
     AlipayPublicKey: '',
@@ -49,6 +51,8 @@ export default function SettingsPaymentGatewayAlipay(props) {
         AlipaySandbox: props.options.AlipaySandbox || false,
         AlipayUseCertificateMode: props.options.AlipayUseCertificateMode || false,
         AlipayPayMode: props.options.AlipayPayMode || 'page',
+        AlipayOrderExpireMinutes: props.options.AlipayOrderExpireMinutes || 30,
+        AlipayPendingSweepDelayMinutes: props.options.AlipayPendingSweepDelayMinutes || 30,
         AlipayAppID: props.options.AlipayAppID || '',
         AlipayPrivateKey: props.options.AlipayPrivateKey || '',
         AlipayPublicKey: props.options.AlipayPublicKey || '',
@@ -96,6 +100,17 @@ export default function SettingsPaymentGatewayAlipay(props) {
         });
         nextOriginInputs.AlipayPayMode = inputs.AlipayPayMode || 'page';
       }
+      ['AlipayOrderExpireMinutes', 'AlipayPendingSweepDelayMinutes'].forEach((key) => {
+        const nextValue = Number(inputs[key]);
+        const prevValue = Number(originInputs[key]);
+        if (!Number.isFinite(nextValue) || nextValue <= 0) {
+          return;
+        }
+        if (nextValue !== prevValue) {
+          options.push({ key, value: String(Math.floor(nextValue)) });
+          nextOriginInputs[key] = Math.floor(nextValue);
+        }
+      });
       [
         'AlipayAppID',
         'AlipayPrivateKey',
@@ -207,6 +222,22 @@ export default function SettingsPaymentGatewayAlipay(props) {
             </Col>
             <Col xs={24} sm={24} md={8} lg={8} xl={8}>
               <Form.Input field='AlipayAppID' label={t('AppID')} placeholder='20**************' />
+            </Col>
+            <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+              <Form.InputNumber
+                field='AlipayOrderExpireMinutes'
+                label={t('订单过期时间（分钟）')}
+                min={1}
+                step={1}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+              <Form.InputNumber
+                field='AlipayPendingSweepDelayMinutes'
+                label={t('待支付扫描延迟（分钟）')}
+                min={1}
+                step={1}
+              />
             </Col>
           </Row>
           <Form.TextArea

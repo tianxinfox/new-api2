@@ -143,6 +143,17 @@ func syncTopUpStatusWithProvider(ctx context.Context, topUp *model.TopUp) error 
 		payload := common.GetJsonString(rsp)
 		switch status {
 		case common.TopUpStatusSuccess:
+			if strings.TrimSpace(rsp.TradeNo) != "" {
+				alipayTradeNo := strings.TrimSpace(rsp.TradeNo)
+				if bindErr := model.BindTopUpAlipayTradeNo(topUp.TradeNo, alipayTradeNo); bindErr != nil {
+					return bindErr
+				}
+				if isSubscriptionTopUp {
+					if bindErr := model.BindSubscriptionAlipayTradeNo(topUp.TradeNo, alipayTradeNo); bindErr != nil {
+						return bindErr
+					}
+				}
+			}
 			if isSubscriptionTopUp {
 				if err = model.CompleteSubscriptionOrder(topUp.TradeNo, payload); err != nil {
 					if errors.Is(err, model.ErrSubscriptionOrderStatusInvalid) {

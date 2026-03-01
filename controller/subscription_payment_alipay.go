@@ -82,9 +82,13 @@ func SubscriptionRequestAlipayPay(c *gin.Context) {
 		common.ApiErrorMsg(c, "alipay config invalid")
 		return
 	}
-	tradeNo := fmt.Sprintf("SUBALIUSR%dNO%s%d", userID, common.GetRandomString(6), time.Now().Unix())
+	now := time.Now()
+	createTime := now.Unix()
+	tradeNo := fmt.Sprintf("SUBALIUSR%dNO%s%d", userID, common.GetRandomString(6), createTime)
 	callBackAddress := service.GetCallbackAddress()
 	payMode := getAlipayPayMode()
+	expireAt := now.Add(time.Duration(getAlipayOrderExpireMinutes()) * time.Minute)
+	timeoutExpress := getAlipayTimeoutExpress()
 	trade := alipay.Trade{
 		NotifyURL:      callBackAddress + "/api/subscription/alipay/notify",
 		ReturnURL:      system_setting.ServerAddress + "/console/subscription",
@@ -92,7 +96,7 @@ func SubscriptionRequestAlipayPay(c *gin.Context) {
 		OutTradeNo:     tradeNo,
 		TotalAmount:    decimal.NewFromFloat(plan.PriceAmount).StringFixed(2),
 		ProductCode:    getAlipayProductCode(payMode),
-		TimeoutExpress: "30m",
+		TimeoutExpress: timeoutExpress,
 	}
 	payLink := ""
 	qrCode := ""
@@ -115,13 +119,15 @@ func SubscriptionRequestAlipayPay(c *gin.Context) {
 	}
 
 	order := &model.SubscriptionOrder{
-		UserId:        userID,
-		PlanId:        plan.Id,
-		Money:         plan.PriceAmount,
-		TradeNo:       tradeNo,
-		PaymentMethod: PaymentMethodAlipay,
-		CreateTime:    time.Now().Unix(),
-		Status:        common.TopUpStatusPending,
+		UserId:             userID,
+		PlanId:             plan.Id,
+		Money:              plan.PriceAmount,
+		TradeNo:            tradeNo,
+		PaymentMethod:      PaymentMethodAlipay,
+		ProviderCodeURL:    qrCode,
+		ProviderExpireTime: expireAt.Unix(),
+		CreateTime:         createTime,
+		Status:             common.TopUpStatusPending,
 	}
 	if err = model.CreateSubscriptionOrderWithTopUp(order); err != nil {
 		common.SysError(fmt.Sprintf("subscription alipay create order with topup failed: user_id=%d plan_id=%d trade_no=%s err=%v", userID, plan.Id, tradeNo, err))
@@ -196,6 +202,16 @@ func SubscriptionAlipayNotify(c *gin.Context) {
 	}
 	if alipayMoneyToCents(plan.PriceAmount) != alipayMoneyToCents(order.Money) {
 		common.SysError(fmt.Sprintf("subscription alipay notify integrity check failed: trade_no=%s plan_price=%.6f order_money=%.6f", tradeNo, plan.PriceAmount, order.Money))
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+	if err := model.BindTopUpAlipayTradeNo(tradeNo, notification.TradeNo); err != nil {
+		common.SysError(fmt.Sprintf("subscription alipay notify bind topup trade no failed: trade_no=%s alipay_trade_no=%s err=%v", tradeNo, notification.TradeNo, err))
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+	if err := model.BindSubscriptionAlipayTradeNo(tradeNo, notification.TradeNo); err != nil {
+		common.SysError(fmt.Sprintf("subscription alipay notify bind subscription trade no failed: trade_no=%s alipay_trade_no=%s err=%v", tradeNo, notification.TradeNo, err))
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}

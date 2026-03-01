@@ -200,6 +200,7 @@ type SubscriptionOrder struct {
 
 	TradeNo            string `json:"trade_no" gorm:"unique;type:varchar(255);index"`
 	WeChatTradeNo      string `json:"wechat_trade_no" gorm:"type:varchar(64);default:'';index"`
+	AlipayTradeNo      string `json:"alipay_trade_no" gorm:"type:varchar(64);default:'';index"`
 	PaymentMethod      string `json:"payment_method" gorm:"type:varchar(50)"`
 	Status             string `json:"status"`
 	ProviderCodeURL    string `json:"-" gorm:"type:text"`
@@ -307,6 +308,29 @@ func BindSubscriptionWeChatTradeNo(tradeNo string, weChatTradeNo string) error {
 		return errors.New("wechat transaction id mismatch")
 	}
 	return DB.Model(&SubscriptionOrder{}).Where("id = ?", order.Id).Update("wechat_trade_no", weChatTradeNo).Error
+}
+
+func BindSubscriptionAlipayTradeNo(tradeNo string, alipayTradeNo string) error {
+	if strings.TrimSpace(tradeNo) == "" {
+		return errors.New("tradeNo is empty")
+	}
+	alipayTradeNo = strings.TrimSpace(alipayTradeNo)
+	if alipayTradeNo == "" {
+		return errors.New("alipay transaction id is empty")
+	}
+
+	order := &SubscriptionOrder{}
+	if err := DB.Select("id", "alipay_trade_no").Where("trade_no = ?", tradeNo).First(order).Error; err != nil {
+		return err
+	}
+
+	if order.AlipayTradeNo == alipayTradeNo {
+		return nil
+	}
+	if strings.TrimSpace(order.AlipayTradeNo) != "" && order.AlipayTradeNo != alipayTradeNo {
+		return errors.New("alipay transaction id mismatch")
+	}
+	return DB.Model(&SubscriptionOrder{}).Where("id = ?", order.Id).Update("alipay_trade_no", alipayTradeNo).Error
 }
 
 // User subscription instance

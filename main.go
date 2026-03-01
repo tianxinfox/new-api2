@@ -115,6 +115,8 @@ func main() {
 	service.StartAgentRebateRetryTask()
 	// WeChat order delayed check and stale pending cleanup task.
 	controller.StartWeChatOrderMaintenanceTask()
+	// Alipay pending order sweep/close task.
+	controller.StartAlipayOrderMaintenanceTask()
 
 	// Wire task polling adaptor factory (breaks service -> relay import cycle)
 	service.GetTaskAdaptorFunc = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
