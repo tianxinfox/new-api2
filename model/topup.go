@@ -30,6 +30,18 @@ type TopUp struct {
 
 const reusableWeChatOrderMinTTLSeconds = 60
 
+func isMissingColumnErr(err error, column string) bool {
+	if err == nil || strings.TrimSpace(column) == "" {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	col := strings.ToLower(strings.TrimSpace(column))
+	return (strings.Contains(msg, "unknown column") ||
+		strings.Contains(msg, "no such column") ||
+		strings.Contains(msg, "does not exist")) &&
+		strings.Contains(msg, col)
+}
+
 func (topUp *TopUp) Insert() error {
 	var err error
 	err = DB.Create(topUp).Error
@@ -120,6 +132,11 @@ func BindTopUpWeChatTradeNo(tradeNo string, weChatTradeNo string) error {
 
 	topUp := &TopUp{}
 	if err := DB.Select("id", "wechat_trade_no").Where("trade_no = ?", tradeNo).First(topUp).Error; err != nil {
+		if isMissingColumnErr(err, "wechat_trade_no") {
+			// Legacy schema compatibility: continue without persisting provider trade no.
+			common.SysError("wechat_trade_no column missing in top_ups, skip binding wechat transaction id")
+			return nil
+		}
 		return err
 	}
 
@@ -129,7 +146,14 @@ func BindTopUpWeChatTradeNo(tradeNo string, weChatTradeNo string) error {
 	if strings.TrimSpace(topUp.WeChatTradeNo) != "" && topUp.WeChatTradeNo != weChatTradeNo {
 		return errors.New("wechat transaction id mismatch")
 	}
-	return DB.Model(&TopUp{}).Where("id = ?", topUp.Id).Update("wechat_trade_no", weChatTradeNo).Error
+	if err := DB.Model(&TopUp{}).Where("id = ?", topUp.Id).Update("wechat_trade_no", weChatTradeNo).Error; err != nil {
+		if isMissingColumnErr(err, "wechat_trade_no") {
+			common.SysError("wechat_trade_no column missing in top_ups, skip binding wechat transaction id")
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func BindTopUpAlipayTradeNo(tradeNo string, alipayTradeNo string) error {
@@ -143,6 +167,11 @@ func BindTopUpAlipayTradeNo(tradeNo string, alipayTradeNo string) error {
 
 	topUp := &TopUp{}
 	if err := DB.Select("id", "alipay_trade_no").Where("trade_no = ?", tradeNo).First(topUp).Error; err != nil {
+		if isMissingColumnErr(err, "alipay_trade_no") {
+			// Legacy schema compatibility: continue without persisting provider trade no.
+			common.SysError("alipay_trade_no column missing in top_ups, skip binding alipay transaction id")
+			return nil
+		}
 		return err
 	}
 
@@ -152,7 +181,14 @@ func BindTopUpAlipayTradeNo(tradeNo string, alipayTradeNo string) error {
 	if strings.TrimSpace(topUp.AlipayTradeNo) != "" && topUp.AlipayTradeNo != alipayTradeNo {
 		return errors.New("alipay transaction id mismatch")
 	}
-	return DB.Model(&TopUp{}).Where("id = ?", topUp.Id).Update("alipay_trade_no", alipayTradeNo).Error
+	if err := DB.Model(&TopUp{}).Where("id = ?", topUp.Id).Update("alipay_trade_no", alipayTradeNo).Error; err != nil {
+		if isMissingColumnErr(err, "alipay_trade_no") {
+			common.SysError("alipay_trade_no column missing in top_ups, skip binding alipay transaction id")
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func Recharge(referenceId string, customerId string) (err error) {

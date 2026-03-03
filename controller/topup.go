@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -106,6 +107,11 @@ type EpayRequest struct {
 
 type AmountRequest struct {
 	Amount int64 `json:"amount"`
+}
+
+type TopUpOrderStatusResponse struct {
+	TradeNo string `json:"trade_no"`
+	Status  string `json:"status"`
 }
 
 func GetEpayClient() *epay.Client {
@@ -428,6 +434,48 @@ func GetUserTopUps(c *gin.Context) {
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(topups)
 	common.ApiSuccess(c, pageInfo)
+}
+
+func GetTopUpOrderStatus(c *gin.Context) {
+	userId := c.GetInt("id")
+	tradeNo := strings.TrimSpace(c.Query("trade_no"))
+	if tradeNo == "" {
+		common.ApiErrorMsg(c, "订单号不能为空")
+		return
+	}
+
+	topUp := model.GetTopUpByTradeNo(tradeNo)
+	if topUp == nil || topUp.UserId != userId {
+		common.ApiErrorMsg(c, "订单不存在")
+		return
+	}
+
+	if topUp.Status == common.TopUpStatusPending &&
+		(topUp.PaymentMethod == PaymentMethodWeChat || topUp.PaymentMethod == PaymentMethodAlipay) {
+		LockOrder(tradeNo)
+		func() {
+			defer UnlockOrder(tradeNo)
+			current := model.GetTopUpByTradeNo(tradeNo)
+			if current == nil || current.UserId != userId || current.Status != common.TopUpStatusPending {
+				return
+			}
+			syncCtx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+			defer cancel()
+			if err := syncTopUpStatusWithProvider(syncCtx, current); err != nil {
+				common.SysError(fmt.Sprintf("topup order status sync failed: trade_no=%s err=%v", tradeNo, err))
+			}
+		}()
+		topUp = model.GetTopUpByTradeNo(tradeNo)
+		if topUp == nil || topUp.UserId != userId {
+			common.ApiErrorMsg(c, "订单不存在")
+			return
+		}
+	}
+
+	common.ApiSuccess(c, TopUpOrderStatusResponse{
+		TradeNo: tradeNo,
+		Status:  topUp.Status,
+	})
 }
 
 // GetAllTopUps returns top-up records across all users for admin.

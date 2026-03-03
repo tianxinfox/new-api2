@@ -1,8 +1,11 @@
 package controller
 
 import (
+	"context"
+	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -19,6 +22,11 @@ type SubscriptionPlanDTO struct {
 
 type BillingPreferenceRequest struct {
 	BillingPreference string `json:"billing_preference"`
+}
+
+type SubscriptionOrderStatusResponse struct {
+	TradeNo string `json:"trade_no"`
+	Status  string `json:"status"`
 }
 
 // ---- User APIs ----
@@ -84,6 +92,56 @@ func UpdateSubscriptionPreference(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, gin.H{"billing_preference": pref})
+}
+
+func GetSubscriptionOrderStatus(c *gin.Context) {
+	userId := c.GetInt("id")
+	tradeNo := strings.TrimSpace(c.Query("trade_no"))
+	if tradeNo == "" {
+		common.ApiErrorMsg(c, "订单号不能为空")
+		return
+	}
+
+	order, err := model.GetSubscriptionOrderByTradeNo(tradeNo)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if order == nil || order.UserId != userId {
+		common.ApiErrorMsg(c, "订单不存在")
+		return
+	}
+
+	// For pending scan-pay orders, proactively sync provider state so the
+	// frontend can close the QR modal immediately after payment.
+	if order.Status == common.TopUpStatusPending {
+		LockOrder(tradeNo)
+		func() {
+			defer UnlockOrder(tradeNo)
+			topUp := model.GetTopUpByTradeNo(tradeNo)
+			if topUp == nil || topUp.Status != common.TopUpStatusPending {
+				return
+			}
+			ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+			defer cancel()
+			if syncErr := syncTopUpStatusWithProvider(ctx, topUp); syncErr != nil {
+				common.SysError(fmt.Sprintf("subscription order status sync failed: trade_no=%s err=%v", tradeNo, syncErr))
+			}
+		}()
+		order, err = model.GetSubscriptionOrderByTradeNo(tradeNo)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		if order == nil || order.UserId != userId {
+			common.ApiErrorMsg(c, "订单不存在")
+			return
+		}
+	}
+	common.ApiSuccess(c, SubscriptionOrderStatusResponse{
+		TradeNo: tradeNo,
+		Status:  order.Status,
+	})
 }
 
 // ---- Admin APIs ----

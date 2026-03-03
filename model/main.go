@@ -291,6 +291,9 @@ func migrateDB() error {
 			return err
 		}
 	}
+	if err := ensureTopUpPaymentColumns(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -361,6 +364,9 @@ func migrateDBFast() error {
 			return err
 		}
 	}
+	if err := ensureTopUpPaymentColumns(); err != nil {
+		return err
+	}
 	common.SysLog("database migrated")
 	return nil
 }
@@ -369,6 +375,26 @@ func migrateLOGDB() error {
 	var err error
 	if err = LOG_DB.AutoMigrate(&Log{}); err != nil {
 		return err
+	}
+	return nil
+}
+
+func ensureTopUpPaymentColumns() error {
+	columns := []struct {
+		Field  string
+		Column string
+	}{
+		{Field: "WeChatTradeNo", Column: "wechat_trade_no"},
+		{Field: "AlipayTradeNo", Column: "alipay_trade_no"},
+	}
+	for _, col := range columns {
+		if DB.Migrator().HasColumn(&TopUp{}, col.Field) {
+			continue
+		}
+		if err := DB.Migrator().AddColumn(&TopUp{}, col.Field); err != nil {
+			return err
+		}
+		common.SysLog(fmt.Sprintf("added missing column top_ups.%s", col.Column))
 	}
 	return nil
 }

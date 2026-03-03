@@ -68,6 +68,14 @@ func syncTopUpStatusWithProvider(ctx context.Context, topUp *model.TopUp) error 
 		}
 		status := mapWeChatTradeStateToTopUpStatus(*tx.TradeState)
 		payload := common.GetJsonString(tx)
+		txID := ""
+		if tx.TransactionId != nil {
+			txID = strings.TrimSpace(*tx.TransactionId)
+		}
+		common.SysLog(fmt.Sprintf(
+			"wechat order query result: trade_no=%s trade_state=%s transaction_id=%s mapped_status=%s",
+			topUp.TradeNo, strings.TrimSpace(*tx.TradeState), txID, status,
+		))
 		// If provider still reports NOTPAY after local expiry, force-close then
 		// converge to unpaid to avoid long-lived pending records.
 		if status == common.TopUpStatusPending &&

@@ -292,11 +292,21 @@ const SubscriptionPlansCard = ({
 
   const querySubscriptionTradeStatus = async (tradeNo) => {
     if (!tradeNo) return '';
-    const res = await API.get(
+    try {
+      const res = await API.get(
+        `/api/subscription/order/status?trade_no=${encodeURIComponent(tradeNo)}`,
+      );
+      if (res?.data?.success) {
+        return res.data?.data?.status || '';
+      }
+    } catch (e) {
+      // fall back to legacy topup list lookup for backward compatibility
+    }
+    const fallbackRes = await API.get(
       `/api/user/topup/self?p=1&page_size=1&keyword=${encodeURIComponent(tradeNo)}`,
     );
-    if (!res?.data?.success) return '';
-    const items = res.data?.data?.items || [];
+    if (!fallbackRes?.data?.success) return '';
+    const items = fallbackRes.data?.data?.items || [];
     const target = items.find((item) => item?.trade_no === tradeNo);
     return target?.status || '';
   };
@@ -387,7 +397,7 @@ const SubscriptionPlansCard = ({
   useEffect(() => {
     const clearPolling = () => {
       if (wechatPayPollingRef.current) {
-        clearInterval(wechatPayPollingRef.current);
+        clearTimeout(wechatPayPollingRef.current);
         wechatPayPollingRef.current = null;
       }
     };
@@ -399,6 +409,11 @@ const SubscriptionPlansCard = ({
 
     let stopped = false;
     let timeoutRef = null;
+    const scheduleNextPoll = () => {
+      if (stopped) return;
+      wechatPayPollingRef.current = setTimeout(runPoll, 3000);
+    };
+
     const pollOnce = async () => {
       if (stopped) return;
       if (
@@ -412,7 +427,7 @@ const SubscriptionPlansCard = ({
         }
         if (stopped) return;
         setWechatPayExpired(true);
-        return;
+        return true;
       }
       try {
         const status = await querySubscriptionTradeStatus(wechatPayTradeNo);
@@ -426,7 +441,7 @@ const SubscriptionPlansCard = ({
           closeWeChatScanModal();
           showSuccess(t('Payment successful'));
           await reloadSubscriptionSelf?.();
-          return;
+          return true;
         }
         if (
           status === 'unpaid' ||
@@ -441,17 +456,26 @@ const SubscriptionPlansCard = ({
           if (stopped) return;
           closeWeChatScanModal();
           showError(t(status === 'unpaid' ? '未支付' : '支付失败'));
+          return true;
         }
       } catch (e) {
         // ignore polling errors
       }
+      return false;
     };
 
-    pollOnce();
-    wechatPayPollingRef.current = setInterval(pollOnce, 3000);
+    const runPoll = async () => {
+      const done = await pollOnce();
+      if (!done) {
+        scheduleNextPoll();
+      }
+    };
+
+    runPoll();
     timeoutRef = setTimeout(() => {
-      clearPolling();
       if (stopped) return;
+      stopped = true;
+      clearPolling();
       showError(t('Payment status polling timed out, please refresh manually.'));
     }, WECHAT_PAY_POLLING_TIMEOUT_MS);
 
@@ -467,7 +491,7 @@ const SubscriptionPlansCard = ({
   useEffect(() => {
     const clearPolling = () => {
       if (alipayPrecreatePollingRef.current) {
-        clearInterval(alipayPrecreatePollingRef.current);
+        clearTimeout(alipayPrecreatePollingRef.current);
         alipayPrecreatePollingRef.current = null;
       }
     };
@@ -479,6 +503,11 @@ const SubscriptionPlansCard = ({
 
     let stopped = false;
     let timeoutRef = null;
+    const scheduleNextPoll = () => {
+      if (stopped) return;
+      alipayPrecreatePollingRef.current = setTimeout(runPoll, 3000);
+    };
+
     const pollOnce = async () => {
       if (stopped) return;
       try {
@@ -495,7 +524,7 @@ const SubscriptionPlansCard = ({
           setAlipayPrecreateTradeNo('');
           showSuccess(t('Payment successful'));
           await reloadSubscriptionSelf?.();
-          return;
+          return true;
         }
         if (
           status === 'unpaid' ||
@@ -512,17 +541,26 @@ const SubscriptionPlansCard = ({
           setAlipayPrecreateCodeUrl('');
           setAlipayPrecreateTradeNo('');
           showError(t(status === 'unpaid' ? '未支付' : '支付失败'));
+          return true;
         }
       } catch (e) {
         // ignore polling errors
       }
+      return false;
     };
 
-    pollOnce();
-    alipayPrecreatePollingRef.current = setInterval(pollOnce, 3000);
+    const runPoll = async () => {
+      const done = await pollOnce();
+      if (!done) {
+        scheduleNextPoll();
+      }
+    };
+
+    runPoll();
     timeoutRef = setTimeout(() => {
-      clearPolling();
       if (stopped) return;
+      stopped = true;
+      clearPolling();
       showError(t('Payment status polling timed out, please refresh manually.'));
     }, WECHAT_PAY_POLLING_TIMEOUT_MS);
 
