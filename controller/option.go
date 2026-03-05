@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -50,7 +49,7 @@ type OptionUpdateRequest struct {
 
 func UpdateOption(c *gin.Context) {
 	var option OptionUpdateRequest
-	err := json.NewDecoder(c.Request.Body).Decode(&option)
+	err := common.DecodeJson(c.Request.Body, &option)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
@@ -65,6 +64,8 @@ func UpdateOption(c *gin.Context) {
 		option.Value = common.Interface2String(option.Value.(float64))
 	case int:
 		option.Value = common.Interface2String(option.Value.(int))
+	case nil:
+		option.Value = ""
 	default:
 		option.Value = fmt.Sprintf("%v", option.Value)
 	}
