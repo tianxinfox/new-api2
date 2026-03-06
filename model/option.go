@@ -208,6 +208,15 @@ func UpdateOption(key string, value string) error {
 	return updateOptionMap(key, value)
 }
 
+func DeleteOption(key string) error {
+	// Delete from database first; then clear runtime cache.
+	err := DB.Where("`key` = ?", key).Delete(&Option{}).Error
+	if err != nil {
+		return err
+	}
+	return updateOptionMap(key, "")
+}
+
 func updateOptionMap(key string, value string) (err error) {
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()

@@ -177,6 +177,18 @@ func GetNotice(c *gin.Context) {
 	return
 }
 
+func DeleteNotice(c *gin.Context) {
+	err := model.DeleteOption("Notice")
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+	})
+}
+
 func GetAbout(c *gin.Context) {
 	common.OptionMapRWMutex.RLock()
 	defer common.OptionMapRWMutex.RUnlock()

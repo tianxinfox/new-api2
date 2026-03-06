@@ -135,7 +135,7 @@ const NoticeModal = ({
             darkModeImage={
               <IllustrationNoContentDark style={{ width: 150, height: 150 }} />
             }
-            description={t('暂无公告')}
+            description={t('暂无通知')}
           />
         </div>
       );
@@ -241,7 +241,7 @@ const NoticeModal = ({
             {t('今日关闭')}
           </Button>
           <Button type='primary' onClick={onClose}>
-            {t('关闭公告')}
+            {t('关闭通知')}
           </Button>
         </div>
       }
