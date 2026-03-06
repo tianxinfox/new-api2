@@ -5,30 +5,19 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 )
 
 var markdownImageURLPattern = regexp.MustCompile(`!\[[^\]]*\]\((https?://[^)\s]+)\)`)
 
-type imageURLPayload struct {
-	Type   string                `json:"type"`
-	Images []imageURLPayloadItem `json:"images"`
-}
-
-type imageURLPayloadItem struct {
-	Url string `json:"url"`
-}
-
-// normalizeMarkdownImageChoices converts markdown image list responses into:
-// {"type":"images","images":[{"url":"..."}]}
-// Returns true when any choice content is rewritten.
-func normalizeMarkdownImageChoices(resp *dto.OpenAITextResponse) bool {
+// normalizeMarkdownImageChoices extracts markdown image URLs for later injection
+// into the top-level response data field while preserving the original content.
+func normalizeMarkdownImageChoices(resp *dto.OpenAITextResponse) ([]dto.ImageURLDataItem, bool) {
 	if resp == nil || len(resp.Choices) == 0 {
-		return false
+		return nil, false
 	}
 
-	changed := false
+	data := make([]dto.ImageURLDataItem, 0)
 	for i := range resp.Choices {
 		raw := strings.TrimSpace(resp.Choices[i].Message.StringContent())
 		if raw == "" {
@@ -47,8 +36,9 @@ func normalizeMarkdownImageChoices(resp *dto.OpenAITextResponse) bool {
 			continue
 		}
 
+		// Keep de-duplication scoped to a single choice so multi-choice
+		// responses preserve the previous counting behavior.
 		seen := make(map[string]struct{}, len(urlMatches))
-		images := make([]imageURLPayloadItem, 0, len(urlMatches))
 		for _, m := range urlMatches {
 			if len(m) < 2 {
 				continue
@@ -61,26 +51,15 @@ func normalizeMarkdownImageChoices(resp *dto.OpenAITextResponse) bool {
 				continue
 			}
 			seen[url] = struct{}{}
-			images = append(images, imageURLPayloadItem{Url: url})
+			data = append(data, dto.ImageURLDataItem{Url: url})
 		}
-		if len(images) == 0 {
-			continue
-		}
-
-		payload := imageURLPayload{
-			Type:   "images",
-			Images: images,
-		}
-		buf, err := common.Marshal(payload)
-		if err != nil {
-			continue
-		}
-
-		resp.Choices[i].Message.SetStringContent(string(buf))
-		changed = true
 	}
 
-	return changed
+	if len(data) == 0 {
+		return nil, false
+	}
+	resp.Usage.GeneratedImages = len(data)
+	return data, true
 }
 
 func countMeaningfulRunes(s string) int {

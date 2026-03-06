@@ -46,6 +46,10 @@ type OpenAITextResponse struct {
 	Usage   `json:"usage"`
 }
 
+type ImageURLDataItem struct {
+	Url string `json:"url"`
+}
+
 // GetOpenAIError 从动态错误类型中提取OpenAIError结构
 func (o *OpenAITextResponse) GetOpenAIError() *types.OpenAIError {
 	return GetOpenAIError(o.Error)
@@ -224,6 +228,7 @@ type Usage struct {
 	CompletionTokens     int `json:"completion_tokens"`
 	TotalTokens          int `json:"total_tokens"`
 	PromptCacheHitTokens int `json:"prompt_cache_hit_tokens,omitempty"`
+	GeneratedImages      int `json:"generated_images,omitempty"`
 
 	PromptTokensDetails    InputTokenDetails  `json:"prompt_tokens_details"`
 	CompletionTokenDetails OutputTokenDetails `json:"completion_tokens_details"`

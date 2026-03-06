@@ -259,9 +259,10 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 
 	applyUsagePostProcessing(info, &simpleResponse.Usage, responseBody)
 
+	var extractedImageData []dto.ImageURLDataItem
 	var responseModified bool
 	if info.ChannelSetting.NormalizeMarkdownImages {
-		responseModified = normalizeMarkdownImageChoices(&simpleResponse)
+		extractedImageData, responseModified = normalizeMarkdownImageChoices(&simpleResponse)
 	}
 
 	switch info.RelayFormat {
@@ -270,6 +271,18 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 			responseBody, err = common.Marshal(simpleResponse)
 			if err != nil {
 				return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+			}
+			if len(extractedImageData) > 0 {
+				var bodyMap map[string]interface{}
+				err = common.Unmarshal(responseBody, &bodyMap)
+				if err != nil {
+					return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+				}
+				bodyMap["data"] = extractedImageData
+				responseBody, err = common.Marshal(bodyMap)
+				if err != nil {
+					return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+				}
 			}
 		} else if usageModified {
 			var bodyMap map[string]interface{}
