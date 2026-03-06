@@ -67,6 +67,29 @@ func clearChannelInfo(channel *model.Channel) {
 	}
 }
 
+func cloneChannelInfo(info model.ChannelInfo) model.ChannelInfo {
+	cloned := info
+	if info.MultiKeyStatusList != nil {
+		cloned.MultiKeyStatusList = make(map[int]int, len(info.MultiKeyStatusList))
+		for k, v := range info.MultiKeyStatusList {
+			cloned.MultiKeyStatusList[k] = v
+		}
+	}
+	if info.MultiKeyDisabledReason != nil {
+		cloned.MultiKeyDisabledReason = make(map[int]string, len(info.MultiKeyDisabledReason))
+		for k, v := range info.MultiKeyDisabledReason {
+			cloned.MultiKeyDisabledReason[k] = v
+		}
+	}
+	if info.MultiKeyDisabledTime != nil {
+		cloned.MultiKeyDisabledTime = make(map[int]int64, len(info.MultiKeyDisabledTime))
+		for k, v := range info.MultiKeyDisabledTime {
+			cloned.MultiKeyDisabledTime[k] = v
+		}
+	}
+	return cloned
+}
+
 func GetAllChannels(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	channelData := make([]*model.Channel, 0)
@@ -344,7 +367,7 @@ func FetchUpstreamModels(c *gin.Context) {
 	}
 
 	var result OpenAIModelsResponse
-	if err = json.Unmarshal(body, &result); err != nil {
+	if err = common.Unmarshal(body, &result); err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": fmt.Sprintf("解析响应失败: %s", err.Error()),
@@ -354,11 +377,7 @@ func FetchUpstreamModels(c *gin.Context) {
 
 	var ids []string
 	for _, model := range result.Data {
-		id := model.ID
-		if channel.Type == constant.ChannelTypeGemini {
-			id = strings.TrimPrefix(id, "models/")
-		}
-		ids = append(ids, id)
+		ids = append(ids, model.ID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -577,6 +596,15 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 	if err := channel.ValidateSettings(); err != nil {
 		return fmt.Errorf("渠道额外设置[channel setting] 格式错误：%s", err.Error())
 	}
+	if err := validateChannelOverrideJSON(channel.ParamOverride, "参数覆盖"); err != nil {
+		return err
+	}
+	if err := validateChannelOverrideJSON(channel.HeaderOverride, "请求头覆盖"); err != nil {
+		return err
+	}
+	if err := validateChannelOverrideJSON(channel.ResponseOverride, "响应覆盖"); err != nil {
+		return err
+	}
 
 	// 如果是添加操作，检查 channel 和 key 是否为空
 	if isAdd {
@@ -628,6 +656,22 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 		}
 	}
 
+	return nil
+}
+
+func validateChannelOverrideJSON(raw *string, fieldName string) error {
+	if raw == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*raw)
+	*raw = trimmed
+	if trimmed == "" {
+		return nil
+	}
+	var parsed any
+	if err := common.Unmarshal([]byte(trimmed), &parsed); err != nil {
+		return fmt.Errorf("%s必须是合法的 JSON 格式", fieldName)
+	}
 	return nil
 }
 
@@ -686,7 +730,7 @@ func getVertexArrayKeys(keys string) ([]string, error) {
 		case string:
 			keyStr = strings.TrimSpace(v)
 		default:
-			bytes, err := json.Marshal(v)
+			bytes, err := common.Marshal(v)
 			if err != nil {
 				return nil, fmt.Errorf("Vertex AI key JSON 编码失败: %w", err)
 			}
@@ -774,20 +818,21 @@ func AddChannel(c *gin.Context) {
 	}
 
 	channels := make([]model.Channel, 0, len(keys))
+	originalName := addChannelRequest.Channel.Name
 	for _, key := range keys {
 		if key == "" {
 			continue
 		}
-		localChannel := addChannelRequest.Channel
+		localChannel := *addChannelRequest.Channel
 		localChannel.Key = key
 		if addChannelRequest.BatchAddSetKeyPrefix2Name && len(keys) > 1 {
 			keyPrefix := localChannel.Key
 			if len(localChannel.Key) > 8 {
 				keyPrefix = localChannel.Key[:8]
 			}
-			localChannel.Name = fmt.Sprintf("%s %s", localChannel.Name, keyPrefix)
+			localChannel.Name = fmt.Sprintf("%s %s", originalName, keyPrefix)
 		}
-		channels = append(channels, *localChannel)
+		channels = append(channels, localChannel)
 	}
 	err = model.BatchInsertChannels(channels)
 	if err != nil {
@@ -803,9 +848,13 @@ func AddChannel(c *gin.Context) {
 }
 
 func DeleteChannel(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, fmt.Errorf("invalid channel id: %w", err))
+		return
+	}
 	channel := model.Channel{Id: id}
-	err := channel.Delete()
+	err = channel.Delete()
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -843,6 +892,7 @@ type ChannelTag struct {
 	Groups         *string `json:"groups"`
 	ParamOverride  *string `json:"param_override"`
 	HeaderOverride *string `json:"header_override"`
+	ResponseOverride *string `json:"response_override"`
 }
 
 func DisableTagChannels(c *gin.Context) {
@@ -910,7 +960,8 @@ func EditTagChannels(c *gin.Context) {
 	}
 	if channelTag.ParamOverride != nil {
 		trimmed := strings.TrimSpace(*channelTag.ParamOverride)
-		if trimmed != "" && !json.Valid([]byte(trimmed)) {
+		var parsed any
+		if trimmed != "" && common.Unmarshal([]byte(trimmed), &parsed) != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
 				"message": "参数覆盖必须是合法的 JSON 格式",
@@ -921,7 +972,8 @@ func EditTagChannels(c *gin.Context) {
 	}
 	if channelTag.HeaderOverride != nil {
 		trimmed := strings.TrimSpace(*channelTag.HeaderOverride)
-		if trimmed != "" && !json.Valid([]byte(trimmed)) {
+		var parsed any
+		if trimmed != "" && common.Unmarshal([]byte(trimmed), &parsed) != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
 				"message": "请求头覆盖必须是合法的 JSON 格式",
@@ -930,7 +982,19 @@ func EditTagChannels(c *gin.Context) {
 		}
 		channelTag.HeaderOverride = common.GetPointer[string](trimmed)
 	}
-	err = model.EditChannelByTag(channelTag.Tag, channelTag.NewTag, channelTag.ModelMapping, channelTag.Models, channelTag.Groups, channelTag.Priority, channelTag.Weight, channelTag.ParamOverride, channelTag.HeaderOverride)
+	if channelTag.ResponseOverride != nil {
+		trimmed := strings.TrimSpace(*channelTag.ResponseOverride)
+		var parsed any
+		if trimmed != "" && common.Unmarshal([]byte(trimmed), &parsed) != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "响应覆盖必须是合法的 JSON 格式",
+			})
+			return
+		}
+		channelTag.ResponseOverride = common.GetPointer[string](trimmed)
+	}
+	err = model.EditChannelByTag(channelTag.Tag, channelTag.NewTag, channelTag.ModelMapping, channelTag.Models, channelTag.Groups, channelTag.Priority, channelTag.Weight, channelTag.ParamOverride, channelTag.HeaderOverride, channelTag.ResponseOverride)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -1025,7 +1089,7 @@ func UpdateChannel(c *gin.Context) {
 				if strings.HasPrefix(strings.TrimSpace(originChannel.Key), "[") {
 					// JSON数组格式
 					var arr []json.RawMessage
-					if err := json.Unmarshal([]byte(strings.TrimSpace(originChannel.Key)), &arr); err == nil {
+					if err := common.Unmarshal([]byte(strings.TrimSpace(originChannel.Key)), &arr); err == nil {
 						existingKeys = make([]string, len(arr))
 						for i, v := range arr {
 							existingKeys[i] = string(v)
@@ -1064,12 +1128,14 @@ func UpdateChannel(c *gin.Context) {
 					}
 				}
 
+				normalizedExistingKeys := make([]string, 0, len(existingKeys))
 				seen := make(map[string]struct{}, len(existingKeys)+len(newKeys))
 				for _, key := range existingKeys {
 					normalized := strings.TrimSpace(key)
 					if normalized == "" {
 						continue
 					}
+					normalizedExistingKeys = append(normalizedExistingKeys, normalized)
 					seen[normalized] = struct{}{}
 				}
 				dedupedNewKeys := make([]string, 0, len(newKeys))
@@ -1085,7 +1151,7 @@ func UpdateChannel(c *gin.Context) {
 					dedupedNewKeys = append(dedupedNewKeys, normalized)
 				}
 
-				allKeys := append(existingKeys, dedupedNewKeys...)
+				allKeys := append(normalizedExistingKeys, dedupedNewKeys...)
 				channel.Key = strings.Join(allKeys, "\n")
 			}
 		case "replace":
@@ -1172,7 +1238,7 @@ func FetchModels(c *gin.Context) {
 		return
 	}
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 500 * time.Second}
 	url := fmt.Sprintf("%s/v1/models", baseURL)
 
 	request, err := http.NewRequest("GET", url, nil)
@@ -1194,6 +1260,7 @@ func FetchModels(c *gin.Context) {
 		})
 		return
 	}
+	defer response.Body.Close()
 	//check status code
 	if response.StatusCode != http.StatusOK {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -1202,7 +1269,6 @@ func FetchModels(c *gin.Context) {
 		})
 		return
 	}
-	defer response.Body.Close()
 
 	var result struct {
 		Data []struct {
@@ -1210,7 +1276,7 @@ func FetchModels(c *gin.Context) {
 		} `json:"data"`
 	}
 
-	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+	if err := common.DecodeJson(response.Body, &result); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
 			"message": err.Error(),
@@ -1324,8 +1390,9 @@ func CopyChannel(c *gin.Context) {
 	}
 
 	// clone channel
-	clone := *origin // shallow copy is sufficient as we will overwrite primitives
-	clone.Id = 0     // let DB auto-generate
+	clone := *origin
+	clone.ChannelInfo = cloneChannelInfo(origin.ChannelInfo)
+	clone.Id = 0 // let DB auto-generate
 	clone.CreatedTime = common.GetTimestamp()
 	clone.Name = origin.Name + suffix
 	clone.TestTime = 0
@@ -1956,7 +2023,7 @@ func OllamaPullModelStream(c *gin.Context) {
 
 	// 创建进度回调函数
 	progressCallback := func(progress ollama.OllamaPullResponse) {
-		data, _ := json.Marshal(progress)
+		data, _ := common.Marshal(progress)
 		fmt.Fprintf(c.Writer, "data: %s\n\n", string(data))
 		c.Writer.Flush()
 	}
@@ -1965,12 +2032,12 @@ func OllamaPullModelStream(c *gin.Context) {
 	err = ollama.PullOllamaModelStream(baseURL, key, req.ModelName, progressCallback)
 
 	if err != nil {
-		errorData, _ := json.Marshal(gin.H{
+		errorData, _ := common.Marshal(gin.H{
 			"error": err.Error(),
 		})
 		fmt.Fprintf(c.Writer, "data: %s\n\n", string(errorData))
 	} else {
-		successData, _ := json.Marshal(gin.H{
+		successData, _ := common.Marshal(gin.H{
 			"message": fmt.Sprintf("Model %s pulled successfully", req.ModelName),
 		})
 		fmt.Fprintf(c.Writer, "data: %s\n\n", string(successData))

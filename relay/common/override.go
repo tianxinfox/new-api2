@@ -48,6 +48,13 @@ func ApplyParamOverride(jsonData []byte, paramOverride map[string]interface{}, c
 	return applyOperationsLegacy(jsonData, paramOverride)
 }
 
+func ApplyResponseOverride(jsonData []byte, responseOverride map[string]interface{}, conditionContext map[string]interface{}) ([]byte, error) {
+	if len(responseOverride) == 0 {
+		return jsonData, nil
+	}
+	return ApplyParamOverride(jsonData, responseOverride, conditionContext)
+}
+
 func tryParseOperations(paramOverride map[string]interface{}) ([]ParamOperation, bool) {
 	// 检查是否包含 "operations" 字段
 	if opsValue, exists := paramOverride["operations"]; exists {

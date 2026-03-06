@@ -40,6 +40,13 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		c.Set("image_generation_call_size", responsesResponse.GetSize())
 	}
 
+	if len(info.ResponseOverride) > 0 {
+		responseBody, err = relaycommon.ApplyResponseOverride(responseBody, info.ResponseOverride, relaycommon.BuildParamOverrideContext(info))
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeChannelResponseOverrideInvalid, types.ErrOptionWithSkipRetry())
+		}
+	}
+
 	// 写入新的 response body
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 

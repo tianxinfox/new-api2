@@ -56,6 +56,9 @@ const MODEL_MAPPING_EXAMPLE = {
   'gpt-3.5-turbo': 'gpt-3.5-turbo-0125',
 };
 
+const containsPotentialHTML = (value) =>
+  typeof value === 'string' && /<[^>]*>|[<>]/.test(value);
+
 const EditTagModal = (props) => {
   const { t } = useTranslation();
   const { visible, tag, handleClose, refresh } = props;
@@ -73,6 +76,7 @@ const EditTagModal = (props) => {
     models: [],
     param_override: null,
     header_override: null,
+    response_override: null,
   };
   const [inputs, setInputs] = useState(originInputs);
   const modelSearchMatchedCount = useMemo(() => {
@@ -199,6 +203,15 @@ const EditTagModal = (props) => {
     setLoading(true);
     const formVals = values || formApiRef.current?.getValues() || {};
     let data = { tag };
+    if (
+      typeof formVals.new_tag === 'string' &&
+      formVals.new_tag.trim() !== '' &&
+      containsPotentialHTML(formVals.new_tag)
+    ) {
+      showInfo('标签名称不能包含 HTML 或脚本内容！');
+      setLoading(false);
+      return;
+    }
     if (formVals.model_mapping) {
       if (!verifyJSON(formVals.model_mapping)) {
         showInfo('模型映射必须是合法的 JSON 格式！');
@@ -247,6 +260,26 @@ const EditTagModal = (props) => {
       }
       data.header_override = trimmedHeaderOverride;
     }
+    if (
+      formVals.response_override !== undefined &&
+      formVals.response_override !== null
+    ) {
+      if (typeof formVals.response_override !== 'string') {
+        showInfo('响应覆盖必须是合法的 JSON 格式！');
+        setLoading(false);
+        return;
+      }
+      const trimmedResponseOverride = formVals.response_override.trim();
+      if (
+        trimmedResponseOverride !== '' &&
+        !verifyJSON(trimmedResponseOverride)
+      ) {
+        showInfo('响应覆盖必须是合法的 JSON 格式！');
+        setLoading(false);
+        return;
+      }
+      data.response_override = trimmedResponseOverride;
+    }
     data.new_tag = formVals.new_tag;
     if (
       data.model_mapping === undefined &&
@@ -254,7 +287,8 @@ const EditTagModal = (props) => {
       data.models === undefined &&
       data.new_tag === undefined &&
       data.param_override === undefined &&
-      data.header_override === undefined
+      data.header_override === undefined &&
+      data.response_override === undefined
     ) {
       showWarning('没有任何修改！');
       setLoading(false);
@@ -295,7 +329,9 @@ const EditTagModal = (props) => {
       if (!tag) return;
       setLoading(true);
       try {
-        const res = await API.get(`/api/channel/tag/models?tag=${tag}`);
+        const res = await API.get(
+          `/api/channel/tag/models?tag=${encodeURIComponent(tag)}`,
+        );
         if (res?.data?.success) {
           const models = res.data.data ? res.data.data.split(',') : [];
           handleInputChange('models', models);
@@ -707,6 +743,58 @@ const EditTagModal = (props) => {
                             </div>
                           </div>
                         </div>
+                      </div>
+                    }
+                  />
+
+                  <Form.TextArea
+                    field='response_override'
+                    label={t('响应覆盖')}
+                    placeholder={
+                      t('此项可选，用于覆盖响应 JSON，不支持流式响应') +
+                      '\n' +
+                      t('新格式（支持条件判断与json自定义）：') +
+                      '\n{\n  "operations": [\n    {\n      "path": "choices.0.message.content",\n      "mode": "regex_replace",\n      "from": "\\\\n*✅ 图片生成完成！.*$",\n      "to": ""\n    }\n  ]\n}'
+                    }
+                    autosize
+                    showClear
+                    onChange={(value) =>
+                      handleInputChange('response_override', value)
+                    }
+                    extraText={
+                      <div className='flex gap-2 flex-wrap'>
+                        <Text
+                          className='!text-semi-color-primary cursor-pointer'
+                          onClick={() =>
+                            handleInputChange(
+                              'response_override',
+                              JSON.stringify(
+                                {
+                                  operations: [
+                                    {
+                                      path: 'choices.0.message.content',
+                                      mode: 'regex_replace',
+                                      from: '\\n*✅ 图片生成完成！.*$',
+                                      to: '',
+                                    },
+                                  ],
+                                },
+                                null,
+                                2,
+                              ),
+                            )
+                          }
+                        >
+                          {t('填入模板')}
+                        </Text>
+                        <Text
+                          className='!text-semi-color-primary cursor-pointer'
+                          onClick={() =>
+                            handleInputChange('response_override', null)
+                          }
+                        >
+                          {t('不更改')}
+                        </Text>
                       </div>
                     }
                   />

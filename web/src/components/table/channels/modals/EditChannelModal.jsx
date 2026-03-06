@@ -156,6 +156,9 @@ const EditChannelModal = (props) => {
     priority: 0,
     weight: 0,
     tag: '',
+    param_override: '',
+    header_override: '',
+    response_override: '',
     multi_key_mode: 'random',
     // 渠道额外设置的默认值
     force_format: false,
@@ -1385,6 +1388,24 @@ const EditChannelModal = (props) => {
       } catch (error) {
         showInfo(t('模型映射必须是合法的 JSON 格式！'));
         return;
+      }
+    }
+
+    for (const [field, label] of [
+      ['param_override', t('参数覆盖')],
+      ['header_override', t('请求头覆盖')],
+      ['response_override', t('响应覆盖')],
+    ]) {
+      if (
+        typeof localInputs[field] === 'string' &&
+        localInputs[field].trim() !== '' &&
+        !verifyJSON(localInputs[field])
+      ) {
+        showInfo(`${label}${t('必须是合法的 JSON 格式！')}`);
+        return;
+      }
+      if (typeof localInputs[field] === 'string') {
+        localInputs[field] = localInputs[field].trim();
       }
     }
 
@@ -3305,6 +3326,56 @@ const EditChannelModal = (props) => {
                               </div>
                             </div>
                           </div>
+                        </div>
+                      }
+                      showClear
+                    />
+
+                    <Form.TextArea
+                      field='response_override'
+                      label={t('响应覆盖')}
+                      placeholder={
+                        t('此项可选，用于覆盖响应 JSON，不支持流式响应') +
+                        '\n' +
+                        t('新格式（支持条件判断与json自定义）：') +
+                        '\n{\n  "operations": [\n    {\n      "path": "choices.0.message.content",\n      "mode": "regex_replace",\n      "from": "\\\\n*✅ 图片生成完成！.*$",\n      "to": ""\n    }\n  ]\n}'
+                      }
+                      autosize
+                      onChange={(value) =>
+                        handleInputChange('response_override', value)
+                      }
+                      extraText={
+                        <div className='flex gap-2 flex-wrap'>
+                          <Text
+                            className='!text-semi-color-primary cursor-pointer'
+                            onClick={() =>
+                              handleInputChange(
+                                'response_override',
+                                JSON.stringify(
+                                  {
+                                    operations: [
+                                      {
+                                        path: 'choices.0.message.content',
+                                        mode: 'regex_replace',
+                                        from: '\\n*✅ 图片生成完成！.*$',
+                                        to: '',
+                                      },
+                                    ],
+                                  },
+                                  null,
+                                  2,
+                                ),
+                              )
+                            }
+                          >
+                            {t('填入模板')}
+                          </Text>
+                          <Text
+                            className='!text-semi-color-primary cursor-pointer'
+                            onClick={() => formatJsonField('response_override')}
+                          >
+                            {t('格式化')}
+                          </Text>
                         </div>
                       }
                       showClear

@@ -312,6 +312,13 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 		responseBody = geminiRespStr
 	}
 
+	if len(info.ResponseOverride) > 0 {
+		responseBody, err = relaycommon.ApplyResponseOverride(responseBody, info.ResponseOverride, relaycommon.BuildParamOverrideContext(info))
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeChannelResponseOverrideInvalid, types.ErrOptionWithSkipRetry())
+		}
+	}
+
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 
 	return &simpleResponse.Usage, nil

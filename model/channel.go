@@ -47,6 +47,7 @@ type Channel struct {
 	Setting           *string `json:"setting" gorm:"type:text"` // 渠道额外设置
 	ParamOverride     *string `json:"param_override" gorm:"type:text"`
 	HeaderOverride    *string `json:"header_override" gorm:"type:text"`
+	ResponseOverride  *string `json:"response_override" gorm:"type:text"`
 	Remark            *string `json:"remark" gorm:"type:varchar(255)" validate:"max=255"`
 	// add after v0.8.5
 	ChannelInfo ChannelInfo `json:"channel_info" gorm:"type:json"`
@@ -74,6 +75,9 @@ func (c ChannelInfo) Value() (driver.Value, error) {
 
 // Scan implements sql.Scanner interface
 func (c *ChannelInfo) Scan(value interface{}) error {
+	if value == nil {
+		return nil
+	}
 	bytesValue, _ := value.([]byte)
 	return common.Unmarshal(bytesValue, c)
 }
@@ -223,7 +227,7 @@ func (channel *Channel) GetOtherInfo() map[string]interface{} {
 }
 
 func (channel *Channel) SetOtherInfo(otherInfo map[string]interface{}) {
-	otherInfoBytes, err := json.Marshal(otherInfo)
+	otherInfoBytes, err := common.Marshal(otherInfo)
 	if err != nil {
 		common.SysLog(fmt.Sprintf("failed to marshal other info: channel_id=%d, tag=%s, name=%s, error=%v", channel.Id, channel.GetTag(), channel.Name, err))
 		return
@@ -575,12 +579,16 @@ func handlerMultiKeyUpdate(channel *Channel, usingKey string, status int, reason
 	if len(keys) == 0 {
 		channel.Status = status
 	} else {
-		var keyIndex int
+		keyIndex := -1
 		for i, key := range keys {
 			if key == usingKey {
 				keyIndex = i
 				break
 			}
+		}
+		if keyIndex < 0 {
+			common.SysLog(fmt.Sprintf("skip multi-key status update because usingKey was not found: channel_id=%d, using_key=%q, target_status=%d", channel.Id, usingKey, status))
+			return
 		}
 		if channel.ChannelInfo.MultiKeyStatusList == nil {
 			channel.ChannelInfo.MultiKeyStatusList = make(map[int]int)
@@ -697,7 +705,7 @@ func DisableChannelByTag(tag string) error {
 	return err
 }
 
-func EditChannelByTag(tag string, newTag *string, modelMapping *string, models *string, group *string, priority *int64, weight *uint, paramOverride *string, headerOverride *string) error {
+func EditChannelByTag(tag string, newTag *string, modelMapping *string, models *string, group *string, priority *int64, weight *uint, paramOverride *string, headerOverride *string, responseOverride *string) error {
 	updateData := Channel{}
 	shouldReCreateAbilities := false
 	updatedTag := tag
@@ -728,6 +736,9 @@ func EditChannelByTag(tag string, newTag *string, modelMapping *string, models *
 	}
 	if headerOverride != nil {
 		updateData.HeaderOverride = headerOverride
+	}
+	if responseOverride != nil {
+		updateData.ResponseOverride = responseOverride
 	}
 
 	err := DB.Model(&Channel{}).Where("tag = ?", tag).Updates(updateData).Error
@@ -916,6 +927,17 @@ func (channel *Channel) GetHeaderOverride() map[string]interface{} {
 		}
 	}
 	return headerOverride
+}
+
+func (channel *Channel) GetResponseOverride() map[string]interface{} {
+	responseOverride := make(map[string]interface{})
+	if channel.ResponseOverride != nil && *channel.ResponseOverride != "" {
+		err := common.Unmarshal([]byte(*channel.ResponseOverride), &responseOverride)
+		if err != nil {
+			common.SysLog(fmt.Sprintf("failed to unmarshal response override: channel_id=%d, error=%v", channel.Id, err))
+		}
+	}
+	return responseOverride
 }
 
 func GetChannelsByIds(ids []int) ([]*Channel, error) {
