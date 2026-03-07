@@ -3201,6 +3201,12 @@
     "Well-Known URL": "URL bien connue",
     "Well-Known URL 必须以 http:// 或 https:// 开头": "L'URL bien connue doit commencer par http:// ou https://",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "Clé de signature Webhook whsec_xxx, les informations sensibles ne sont pas affichées",
+    "端点路径重写": "Réécriture du chemin de l'endpoint",
+    "端点路径重写不是合法的 JSON 字符串": "La réécriture du chemin de l'endpoint n'est pas une chaîne JSON valide",
+    "可选，JSON 对象格式。键为请求路径，值为上游路径；支持 * 作为前缀通配。例如：": "Optionnel, format objet JSON. La clé est le chemin de requête, la valeur est le chemin amont ; * est pris en charge comme joker de préfixe. Exemple :",
+    "示例：\"/v1/images/edits\" -> \"/v1/images/compositions\"，或使用 \"/v1/images/edits*\" 前缀通配": "Exemple : \"/v1/images/edits\" -> \"/v1/images/compositions\", ou utilisez \"/v1/images/edits*\" comme joker de préfixe",
+    "图片请求转聊天请求": "Convertir les requêtes image en requêtes chat",
+    "仅在 /v1/images/edits 或 /v1/images/generations + JSON 透传 + 上游端点为 /v1/chat/completions 时生效：自动转换为 messages": "Valable uniquement pour /v1/images/edits ou /v1/images/generations + transmission JSON + endpoint amont /v1/chat/completions : conversion automatique en messages",
     "Worker地址": "Adresse du Worker",
     "Worker密钥": "Clé du Worker"
   }

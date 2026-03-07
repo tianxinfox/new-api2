@@ -42,6 +42,9 @@ type OpenAITextResponse struct {
 	Object  string                     `json:"object"`
 	Created any                        `json:"created"`
 	Choices []OpenAITextResponseChoice `json:"choices"`
+	// Keep data flexible for non-standard upstream payloads.
+	// normalizeMarkdownImageChoices may set this field to []ImageURLDataItem.
+	Data  any `json:"data,omitempty"`
 	Error   any                        `json:"error,omitempty"`
 	Usage   `json:"usage"`
 }

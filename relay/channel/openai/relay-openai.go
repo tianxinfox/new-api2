@@ -263,6 +263,9 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 	var responseModified bool
 	if info.ChannelSetting.NormalizeMarkdownImages {
 		extractedImageData, responseModified = normalizeMarkdownImageChoices(&simpleResponse)
+		if responseModified && len(extractedImageData) > 0 {
+			simpleResponse.Data = extractedImageData
+		}
 	}
 
 	switch info.RelayFormat {
@@ -271,18 +274,6 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 			responseBody, err = common.Marshal(simpleResponse)
 			if err != nil {
 				return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
-			}
-			if len(extractedImageData) > 0 {
-				var bodyMap map[string]interface{}
-				err = common.Unmarshal(responseBody, &bodyMap)
-				if err != nil {
-					return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
-				}
-				bodyMap["data"] = extractedImageData
-				responseBody, err = common.Marshal(bodyMap)
-				if err != nil {
-					return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
-				}
 			}
 		} else if usageModified {
 			var bodyMap map[string]interface{}
@@ -588,6 +579,29 @@ func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
+	}
+
+	if info.ChannelSetting.NormalizeMarkdownImages {
+		var textResp dto.OpenAITextResponse
+		if unmarshalErr := common.Unmarshal(responseBody, &textResp); unmarshalErr == nil {
+			extractedImageData, responseModified := normalizeMarkdownImageChoices(&textResp)
+			if responseModified {
+				if len(extractedImageData) > 0 {
+					textResp.Data = extractedImageData
+				}
+				responseBody, err = common.Marshal(textResp)
+				if err != nil {
+					return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+				}
+			}
+		}
+	}
+
+	if len(info.ResponseOverride) > 0 {
+		responseBody, err = relaycommon.ApplyResponseOverride(responseBody, info.ResponseOverride, relaycommon.BuildParamOverrideContext(info))
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeChannelResponseOverrideInvalid, types.ErrOptionWithSkipRetry())
+		}
 	}
 
 	var usageResp dto.SimpleResponse

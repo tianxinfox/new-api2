@@ -3753,6 +3753,12 @@
     "Well-Known URL": "Well-Known URL",
     "Well-Known URL 必须以 http:// 或 https:// 开头": "Well-Known URL phải bắt đầu bằng http:// hoặc https://",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "Khóa chữ ký Webhook cho whsec_xxx, thông tin nhạy cảm không được hiển thị",
+    "端点路径重写": "Viết lại đường dẫn endpoint",
+    "端点路径重写不是合法的 JSON 字符串": "Viết lại đường dẫn endpoint không phải chuỗi JSON hợp lệ",
+    "可选，JSON 对象格式。键为请求路径，值为上游路径；支持 * 作为前缀通配。例如：": "Tùy chọn, định dạng đối tượng JSON. Khóa là đường dẫn request, giá trị là đường dẫn upstream; hỗ trợ * làm wildcard tiền tố. Ví dụ:",
+    "示例：\"/v1/images/edits\" -> \"/v1/images/compositions\"，或使用 \"/v1/images/edits*\" 前缀通配": "Ví dụ: \"/v1/images/edits\" -> \"/v1/images/compositions\", hoặc dùng \"/v1/images/edits*\" làm wildcard tiền tố",
+    "图片请求转聊天请求": "Chuyển yêu cầu ảnh thành yêu cầu chat",
+    "仅在 /v1/images/edits 或 /v1/images/generations + JSON 透传 + 上游端点为 /v1/chat/completions 时生效：自动转换为 messages": "Chỉ có hiệu lực khi /v1/images/edits hoặc /v1/images/generations + JSON passthrough + endpoint upstream là /v1/chat/completions: tự động chuyển thành messages",
     "Worker地址": "Địa chỉ Worker",
     "Worker密钥": "Khóa Worker"
   }

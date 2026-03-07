@@ -3242,6 +3242,12 @@
     "Well-Known URL": "Well-Known URL",
     "Well-Known URL 必须以 http:// 或 https:// 开头": "Well-Known URL must start with http:// or https://",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "Webhook signature key for whsec_xxx, sensitive information not displayed",
+    "端点路径重写": "Endpoint Path Rewrite",
+    "端点路径重写不是合法的 JSON 字符串": "Endpoint path rewrite is not a valid JSON string",
+    "可选，JSON 对象格式。键为请求路径，值为上游路径；支持 * 作为前缀通配。例如：": "Optional, JSON object format. Keys are request paths, values are upstream paths; supports * as a prefix wildcard. For example:",
+    "示例：\"/v1/images/edits\" -> \"/v1/images/compositions\"，或使用 \"/v1/images/edits*\" 前缀通配": "Example: \"/v1/images/edits\" -> \"/v1/images/compositions\", or use \"/v1/images/edits*\" as a prefix wildcard",
+    "图片请求转聊天请求": "Convert image requests to chat requests",
+    "仅在 /v1/images/edits 或 /v1/images/generations + JSON 透传 + 上游端点为 /v1/chat/completions 时生效：自动转换为 messages": "Only works when /v1/images/edits or /v1/images/generations + JSON passthrough + upstream endpoint is /v1/chat/completions: auto-converts to messages",
     "Worker地址": "Worker Address",
     "Worker密钥": "Worker Key"
   }

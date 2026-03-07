@@ -488,12 +488,72 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 		info.RequestURLPath = "/v1" + info.RequestURLPath
 	}
 
+	// Endpoint replacement (path only): keep relay mode and request body handling unchanged.
+	if channelOtherSettings, ok := common.GetContextKeyType[dto.ChannelOtherSettings](c, constant.ContextKeyChannelOtherSetting); ok {
+		info.RequestURLPath = rewriteRequestURLPathForUpstream(info.RequestURLPath, channelOtherSettings)
+	}
+
 	userSetting, ok := common.GetContextKeyType[dto.UserSetting](c, constant.ContextKeyUserSetting)
 	if ok {
 		info.UserSetting = userSetting
 	}
 
 	return info
+}
+
+func rewriteRequestURLPathForUpstream(requestURLPath string, channelOtherSettings dto.ChannelOtherSettings) string {
+	if requestURLPath == "" {
+		return requestURLPath
+	}
+
+	pathPart, queryPart, hasQuery := strings.Cut(requestURLPath, "?")
+
+	pathPart = applyConfiguredEndpointRewrite(pathPart, channelOtherSettings.EndpointPathRewrite)
+
+	if hasQuery {
+		return pathPart + "?" + queryPart
+	}
+	return pathPart
+}
+
+func applyConfiguredEndpointRewrite(pathPart string, endpointPathRewrite map[string]string) string {
+	if pathPart == "" || len(endpointPathRewrite) == 0 {
+		return pathPart
+	}
+
+	// exact match first
+	if to, ok := endpointPathRewrite[pathPart]; ok && strings.TrimSpace(to) != "" {
+		return to
+	}
+
+	// wildcard prefix: "/foo/*" -> "/bar/*" (preserve suffix)
+	longestPrefix := ""
+	longestTarget := ""
+	for from, to := range endpointPathRewrite {
+		if strings.TrimSpace(from) == "" || strings.TrimSpace(to) == "" {
+			continue
+		}
+		if !strings.HasSuffix(from, "*") {
+			continue
+		}
+		prefix := strings.TrimSuffix(from, "*")
+		if !strings.HasPrefix(pathPart, prefix) {
+			continue
+		}
+		if len(prefix) > len(longestPrefix) {
+			longestPrefix = prefix
+			longestTarget = to
+		}
+	}
+	if longestPrefix != "" {
+		suffix := strings.TrimPrefix(pathPart, longestPrefix)
+		if strings.HasSuffix(longestTarget, "*") {
+			return strings.TrimSuffix(longestTarget, "*") + suffix
+		}
+		return longestTarget + suffix
+	}
+
+	return pathPart
 }
 
 func GenRelayInfo(c *gin.Context, relayFormat types.RelayFormat, request dto.Request, ws *websocket.Conn) (*RelayInfo, error) {

@@ -99,6 +99,10 @@ const REGION_EXAMPLE = {
   'claude-3-5-sonnet-20240620': 'europe-west1',
 };
 
+const ENDPOINT_PATH_REWRITE_EXAMPLE = {
+  '/v1/images/edits': '/v1/images/compositions',
+};
+
 // 支持并且已适配通过接口获取模型列表的渠道类型
 const MODEL_FETCHABLE_TYPES = new Set([
   1, 4, 14, 34, 17, 26, 27, 24, 47, 25, 20, 23, 31, 40, 42, 48, 43,
@@ -182,6 +186,8 @@ const EditChannelModal = (props) => {
     allow_include_obfuscation: false,
     allow_inference_geo: false,
     claude_beta_query: false,
+    endpoint_path_rewrite: '',
+    image_to_chat_enabled: false,
   };
   const [batch, setBatch] = useState(false);
   const [multiToSingle, setMultiToSingle] = useState(false);
@@ -682,6 +688,13 @@ const EditChannelModal = (props) => {
           data.allow_inference_geo =
             parsedSettings.allow_inference_geo || false;
           data.claude_beta_query = parsedSettings.claude_beta_query || false;
+          data.endpoint_path_rewrite = parsedSettings.endpoint_path_rewrite
+            ? JSON.stringify(parsedSettings.endpoint_path_rewrite, null, 2)
+            : '';
+          data.image_to_chat_enabled =
+            parsedSettings.image_to_chat_enabled ||
+            parsedSettings.image_edits_to_chat_enabled ||
+            false;
         } catch (error) {
           console.error('解析其他设置失败:', error);
           data.azure_responses_version = '';
@@ -695,6 +708,8 @@ const EditChannelModal = (props) => {
           data.allow_include_obfuscation = false;
           data.allow_inference_geo = false;
           data.claude_beta_query = false;
+          data.endpoint_path_rewrite = '';
+          data.image_to_chat_enabled = false;
         }
       } else {
         // 兼容历史数据：老渠道没有 settings 时，默认按 json 展示
@@ -707,6 +722,8 @@ const EditChannelModal = (props) => {
         data.allow_include_obfuscation = false;
         data.allow_inference_geo = false;
         data.claude_beta_query = false;
+        data.endpoint_path_rewrite = '';
+        data.image_to_chat_enabled = false;
       }
 
       if (
@@ -1529,6 +1546,27 @@ const EditChannelModal = (props) => {
       }
     }
 
+    // 端点路径重写：JSON对象，key=原路径，value=目标路径
+    if (
+      typeof localInputs.endpoint_path_rewrite === 'string' &&
+      localInputs.endpoint_path_rewrite.trim() !== ''
+    ) {
+      if (!verifyJSON(localInputs.endpoint_path_rewrite)) {
+        showError(t('端点路径重写不是合法的 JSON 字符串'));
+        return;
+      }
+      settings.endpoint_path_rewrite = JSON.parse(
+        localInputs.endpoint_path_rewrite,
+      );
+    } else {
+      delete settings.endpoint_path_rewrite;
+    }
+
+    settings.image_to_chat_enabled = localInputs.image_to_chat_enabled === true;
+    // backward compatibility for old deployments/config readers
+    settings.image_edits_to_chat_enabled =
+      localInputs.image_to_chat_enabled === true;
+
     localInputs.settings = JSON.stringify(settings);
 
     // 清理不需要发送到后端的字段
@@ -1551,6 +1589,8 @@ const EditChannelModal = (props) => {
     delete localInputs.allow_include_obfuscation;
     delete localInputs.allow_inference_geo;
     delete localInputs.claude_beta_query;
+    delete localInputs.endpoint_path_rewrite;
+    delete localInputs.image_to_chat_enabled;
 
     let res;
     localInputs.auto_ban = localInputs.auto_ban ? 1 : 0;
@@ -3563,6 +3603,47 @@ const EditChannelModal = (props) => {
                         )}
                       />
                     )}
+
+                    <JSONEditor
+                      key={`endpoint-path-rewrite-${isEdit ? channelId : 'new'}`}
+                      field='endpoint_path_rewrite'
+                      label={t('端点路径重写')}
+                      placeholder={
+                        t(
+                          '可选，JSON 对象格式。键为请求路径，值为上游路径；支持 * 作为前缀通配。例如：',
+                        ) +
+                        '\n' +
+                        JSON.stringify(ENDPOINT_PATH_REWRITE_EXAMPLE, null, 2)
+                      }
+                      value={inputs.endpoint_path_rewrite || ''}
+                      // JSONEditor returns a raw JSON string in form state, parsed on submit.
+                      onChange={(value) =>
+                        handleInputChange('endpoint_path_rewrite', value)
+                      }
+                      template={ENDPOINT_PATH_REWRITE_EXAMPLE}
+                      templateLabel={t('填入模板')}
+                      editorType='keyValue'
+                      formApi={formApiRef.current}
+                      extraText={t(
+                        '示例："/v1/images/edits" -> "/v1/images/compositions"，或使用 "/v1/images/edits*" 前缀通配',
+                      )}
+                    />
+
+                    <Form.Switch
+                      field='image_to_chat_enabled'
+                      label={t('图片请求转聊天请求')}
+                      checkedText={t('开')}
+                      uncheckedText={t('关')}
+                      onChange={(value) =>
+                        handleChannelOtherSettingsChange(
+                          'image_to_chat_enabled',
+                          value,
+                        )
+                      }
+                      extraText={t(
+                        '仅在 /v1/images/edits 或 /v1/images/generations + JSON 透传 + 上游端点为 /v1/chat/completions 时生效：自动转换为 messages',
+                      )}
+                    />
 
                     {inputs.type === 1 && (
                       <Form.Switch

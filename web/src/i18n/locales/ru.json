@@ -3214,6 +3214,12 @@
     "Well-Known URL": "Well-Known URL",
     "Well-Known URL 必须以 http:// 或 https:// 开头": "Well-Known URL должен начинаться с http:// или https://",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "Ключ подписи Webhook whsec_xxx, конфиденциальная информация не отображается",
+    "端点路径重写": "Перезапись пути endpoint",
+    "端点路径重写不是合法的 JSON 字符串": "Перезапись пути endpoint не является корректной JSON-строкой",
+    "可选，JSON 对象格式。键为请求路径，值为上游路径；支持 * 作为前缀通配。例如：": "Необязательно, формат JSON-объекта. Ключ — путь запроса, значение — путь upstream; поддерживается * как префиксный wildcard. Например:",
+    "示例：\"/v1/images/edits\" -> \"/v1/images/compositions\"，或使用 \"/v1/images/edits*\" 前缀通配": "Пример: \"/v1/images/edits\" -> \"/v1/images/compositions\", или используйте \"/v1/images/edits*\" как префиксный wildcard",
+    "图片请求转聊天请求": "Преобразование image-запросов в chat-запросы",
+    "仅在 /v1/images/edits 或 /v1/images/generations + JSON 透传 + 上游端点为 /v1/chat/completions 时生效：自动转换为 messages": "Работает только при /v1/images/edits или /v1/images/generations + JSON passthrough + upstream endpoint /v1/chat/completions: автоматически преобразует в messages",
     "Worker地址": "Адрес Worker",
     "Worker密钥": "Ключ Worker"
   }

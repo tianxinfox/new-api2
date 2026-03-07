@@ -429,6 +429,9 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	switch info.RelayMode {
 	case relayconstant.RelayModeImagesEdits:
+		if !strings.Contains(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
+			return request, nil
+		}
 
 		var requestBody bytes.Buffer
 		writer := multipart.NewWriter(&requestBody)
@@ -596,7 +599,8 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
 	if info.RelayMode == relayconstant.RelayModeAudioTranscription ||
 		info.RelayMode == relayconstant.RelayModeAudioTranslation ||
-		info.RelayMode == relayconstant.RelayModeImagesEdits {
+		(info.RelayMode == relayconstant.RelayModeImagesEdits &&
+			strings.Contains(c.Request.Header.Get("Content-Type"), "multipart/form-data")) {
 		return channel.DoFormRequest(a, c, info, requestBody)
 	} else if info.RelayMode == relayconstant.RelayModeRealtime {
 		return channel.DoWssRequest(a, c, info, requestBody)

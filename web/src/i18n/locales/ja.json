@@ -3184,6 +3184,12 @@
     "Well-Known URL": "Well-Known URL",
     "Well-Known URL 必须以 http:// 或 https:// 开头": "Well-Known URLは、http://またはhttps://で始まることが必須です",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "whsec_xxx のWebhook署名シークレット。機密情報は表示されません",
+    "端点路径重写": "エンドポイントパス書き換え",
+    "端点路径重写不是合法的 JSON 字符串": "エンドポイントパス書き換えが有効なJSON文字列ではありません",
+    "可选，JSON 对象格式。键为请求路径，值为上游路径；支持 * 作为前缀通配。例如：": "任意設定。JSONオブジェクト形式で、キーはリクエストパス、値は上流パスです。* をプレフィックスワイルドカードとして使用できます。例:",
+    "示例：\"/v1/images/edits\" -> \"/v1/images/compositions\"，或使用 \"/v1/images/edits*\" 前缀通配": "例: \"/v1/images/edits\" -> \"/v1/images/compositions\"、または \"/v1/images/edits*\" をプレフィックスワイルドカードとして使用",
+    "图片请求转聊天请求": "画像リクエストをチャットリクエストへ変換",
+    "仅在 /v1/images/edits 或 /v1/images/generations + JSON 透传 + 上游端点为 /v1/chat/completions 时生效：自动转换为 messages": "/v1/images/edits または /v1/images/generations + JSON透過 + 上流エンドポイントが /v1/chat/completions の場合のみ有効: messages に自動変換",
     "Worker地址": "Workerアドレス",
     "Worker密钥": "WorkerAPIキー"
   }
