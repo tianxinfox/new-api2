@@ -374,16 +374,38 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 }
 
 type Stat struct {
-	Quota int `json:"quota"`
-	Rpm   int `json:"rpm"`
-	Tpm   int `json:"tpm"`
+	Quota            int `json:"quota"`
+	RequestCount     int `json:"request_count"`
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	Token            int `json:"token"`
+	Rpm              int `json:"rpm"`
+	Tpm              int `json:"tpm"`
+}
+
+type rpmTpmStat struct {
+	Rpm int `json:"rpm"`
+	Tpm int `json:"tpm"`
 }
 
 func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string) (stat Stat, err error) {
-	tx := LOG_DB.Table("logs").Select("sum(quota) quota")
+	tx := LOG_DB.Table("logs").Select(`
+		COALESCE(sum(quota), 0) quota,
+		COUNT(*) request_count,
+		COALESCE(sum(prompt_tokens), 0) prompt_tokens,
+		COALESCE(sum(completion_tokens), 0) completion_tokens,
+		COALESCE(sum(prompt_tokens), 0) + COALESCE(sum(completion_tokens), 0) token
+	`)
 
-	// 为rpm和tpm创建单独的查询
-	rpmTpmQuery := LOG_DB.Table("logs").Select("count(*) rpm, sum(prompt_tokens) + sum(completion_tokens) tpm")
+	// RPM/TPM keeps its existing "recent 60 seconds" semantics on purpose.
+	// It still follows the same identity/model/channel/group filters as the
+	// interval summary above, but it is not constrained by the selected time
+	// range because it is meant to reflect current throughput instead of the
+	// historical interval aggregate.
+	rpmTpmQuery := LOG_DB.Table("logs").Select(`
+		COUNT(*) rpm,
+		COALESCE(sum(prompt_tokens), 0) + COALESCE(sum(completion_tokens), 0) tpm
+	`)
 
 	if username != "" {
 		tx = tx.Where("username = ?", username)
@@ -416,8 +438,10 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 		rpmTpmQuery = rpmTpmQuery.Where(logGroupCol+" = ?", group)
 	}
 
-	tx = tx.Where("type = ?", LogTypeConsume)
-	rpmTpmQuery = rpmTpmQuery.Where("type = ?", LogTypeConsume)
+	if logType != LogTypeUnknown {
+		tx = tx.Where("type = ?", logType)
+		rpmTpmQuery = rpmTpmQuery.Where("type = ?", logType)
+	}
 
 	// 只统计最近60秒的rpm和tpm
 	rpmTpmQuery = rpmTpmQuery.Where("created_at >= ?", time.Now().Add(-60*time.Second).Unix())
@@ -427,16 +451,19 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 		common.SysError("failed to query log stat: " + err.Error())
 		return stat, errors.New("查询统计数据失败")
 	}
-	if err := rpmTpmQuery.Scan(&stat).Error; err != nil {
+	var recentStat rpmTpmStat
+	if err := rpmTpmQuery.Scan(&recentStat).Error; err != nil {
 		common.SysError("failed to query rpm/tpm stat: " + err.Error())
 		return stat, errors.New("查询统计数据失败")
 	}
+	stat.Rpm = recentStat.Rpm
+	stat.Tpm = recentStat.Tpm
 
 	return stat, nil
 }
 
 func SumUsedToken(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string) (token int) {
-	tx := LOG_DB.Table("logs").Select("ifnull(sum(prompt_tokens),0) + ifnull(sum(completion_tokens),0)")
+	tx := LOG_DB.Table("logs").Select("COALESCE(sum(prompt_tokens), 0) + COALESCE(sum(completion_tokens), 0)")
 	if username != "" {
 		tx = tx.Where("username = ?", username)
 	}

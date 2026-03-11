@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Tag, Space, Skeleton } from '@douyinfe/semi-ui';
-import { renderQuota } from '../../../helpers';
+import { renderNumber, renderQuota } from '../../../helpers';
 import CompactModeToggle from '../../common/ui/CompactModeToggle';
 import { useMinimumLoadingTime } from '../../../hooks/common/useMinimumLoadingTime';
 
@@ -37,6 +37,10 @@ const LogsActions = ({
   const placeholder = (
     <Space>
       <Skeleton.Title style={{ width: 108, height: 21, borderRadius: 6 }} />
+      <Skeleton.Title style={{ width: 88, height: 21, borderRadius: 6 }} />
+      <Skeleton.Title style={{ width: 88, height: 21, borderRadius: 6 }} />
+      <Skeleton.Title style={{ width: 88, height: 21, borderRadius: 6 }} />
+      <Skeleton.Title style={{ width: 88, height: 21, borderRadius: 6 }} />
       <Skeleton.Title style={{ width: 65, height: 21, borderRadius: 6 }} />
       <Skeleton.Title style={{ width: 64, height: 21, borderRadius: 6 }} />
     </Space>
@@ -58,6 +62,50 @@ const LogsActions = ({
             {t('消耗额度')}: {renderQuota(stat.quota)}
           </Tag>
           <Tag
+            color='cyan'
+            style={{
+              fontWeight: 500,
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              padding: 13,
+            }}
+            className='!rounded-lg'
+          >
+            {t('总令牌数')}: {renderNumber(stat.token)}
+          </Tag>
+          <Tag
+            color='green'
+            style={{
+              fontWeight: 500,
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              padding: 13,
+            }}
+            className='!rounded-lg'
+          >
+            {t('请求次数')}: {renderNumber(stat.request_count)}
+          </Tag>
+          <Tag
+            color='lime'
+            style={{
+              fontWeight: 500,
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              padding: 13,
+            }}
+            className='!rounded-lg'
+          >
+            {t('输入令牌数')}: {renderNumber(stat.prompt_tokens)}
+          </Tag>
+          <Tag
+            color='orange'
+            style={{
+              fontWeight: 500,
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              padding: 13,
+            }}
+            className='!rounded-lg'
+          >
+            {t('输出令牌数')}: {renderNumber(stat.completion_tokens)}
+          </Tag>
+          <Tag
             color='pink'
             style={{
               fontWeight: 500,
@@ -66,7 +114,7 @@ const LogsActions = ({
             }}
             className='!rounded-lg'
           >
-            RPM: {stat.rpm}
+            RPM: {renderNumber(stat.rpm)}
           </Tag>
           <Tag
             color='white'
@@ -78,7 +126,7 @@ const LogsActions = ({
             }}
             className='!rounded-lg'
           >
-            TPM: {stat.tpm}
+            TPM: {renderNumber(stat.tpm)}
           </Tag>
         </Space>
       </Skeleton>

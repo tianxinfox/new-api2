@@ -57,7 +57,7 @@ export const useDashboardStats = (
             trendColor: '#3b82f6',
           },
           {
-            title: t('历史消耗'),
+            title: t('累计消耗'),
             value: renderQuota(userState?.user?.used_quota),
             icon: <IconHistogram />,
             avatarColor: 'purple',
@@ -71,7 +71,7 @@ export const useDashboardStats = (
         color: 'bg-green-50',
         items: [
           {
-            title: t('请求次数'),
+            title: t('累计请求次数'),
             value: userState.user?.request_count,
             icon: <IconSend />,
             avatarColor: 'green',
@@ -79,7 +79,7 @@ export const useDashboardStats = (
             trendColor: '#10b981',
           },
           {
-            title: t('统计次数'),
+            title: t('区间统计次数'),
             value: times,
             icon: <IconPulse />,
             avatarColor: 'cyan',
@@ -93,7 +93,7 @@ export const useDashboardStats = (
         color: 'bg-yellow-50',
         items: [
           {
-            title: t('统计额度'),
+            title: t('区间统计额度'),
             value: renderQuota(consumeQuota),
             icon: <IconCoinMoneyStroked />,
             avatarColor: 'yellow',
@@ -101,7 +101,7 @@ export const useDashboardStats = (
             trendColor: '#f59e0b',
           },
           {
-            title: t('统计Tokens'),
+            title: t('区间统计Tokens'),
             value: isNaN(consumeTokens) ? 0 : consumeTokens.toLocaleString(),
             icon: <IconTextStroked />,
             avatarColor: 'pink',
@@ -115,7 +115,7 @@ export const useDashboardStats = (
         color: 'bg-indigo-50',
         items: [
           {
-            title: t('平均RPM'),
+            title: t('区间平均RPM'),
             value: performanceMetrics.avgRPM,
             icon: <IconStopwatchStroked />,
             avatarColor: 'indigo',
@@ -123,7 +123,7 @@ export const useDashboardStats = (
             trendColor: '#6366f1',
           },
           {
-            title: t('平均TPM'),
+            title: t('区间平均TPM'),
             value: performanceMetrics.avgTPM,
             icon: <IconTypograph />,
             avatarColor: 'orange',
