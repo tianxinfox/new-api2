@@ -40,6 +40,10 @@ export default function SettingsPaymentGatewayAlipay(props) {
     AlipayAppPublicCert: '',
     AlipayAlipayPublicCert: '',
     AlipayRootCert: '',
+    AgentWithdrawEnabled: false,
+    AgentWithdrawMinAmount: 1,
+    AgentWithdrawOrderTitle: '代理佣金提现',
+    AgentWithdrawSceneName: '佣金报酬',
   });
   const [originInputs, setOriginInputs] = useState({});
   const formApiRef = useRef(null);
@@ -59,6 +63,10 @@ export default function SettingsPaymentGatewayAlipay(props) {
         AlipayAppPublicCert: props.options.AlipayAppPublicCert || '',
         AlipayAlipayPublicCert: props.options.AlipayAlipayPublicCert || '',
         AlipayRootCert: props.options.AlipayRootCert || '',
+        AgentWithdrawEnabled: props.options.AgentWithdrawEnabled || false,
+        AgentWithdrawMinAmount: props.options.AgentWithdrawMinAmount || 1,
+        AgentWithdrawOrderTitle: props.options.AgentWithdrawOrderTitle || '代理佣金提现',
+        AgentWithdrawSceneName: props.options.AgentWithdrawSceneName || '佣金报酬',
       };
       setInputs(currentInputs);
       setOriginInputs({ ...currentInputs });
@@ -109,6 +117,27 @@ export default function SettingsPaymentGatewayAlipay(props) {
         if (nextValue !== prevValue) {
           options.push({ key, value: String(Math.floor(nextValue)) });
           nextOriginInputs[key] = Math.floor(nextValue);
+        }
+      });
+      if (originInputs.AgentWithdrawEnabled !== inputs.AgentWithdrawEnabled) {
+        options.push({
+          key: 'AgentWithdrawEnabled',
+          value: inputs.AgentWithdrawEnabled ? 'true' : 'false',
+        });
+        nextOriginInputs.AgentWithdrawEnabled = inputs.AgentWithdrawEnabled;
+      }
+      const nextMinAmount = Number(inputs.AgentWithdrawMinAmount);
+      const prevMinAmount = Number(originInputs.AgentWithdrawMinAmount);
+      if (Number.isFinite(nextMinAmount) && nextMinAmount > 0 && nextMinAmount !== prevMinAmount) {
+        options.push({ key: 'AgentWithdrawMinAmount', value: String(nextMinAmount) });
+        nextOriginInputs.AgentWithdrawMinAmount = nextMinAmount;
+      }
+      ['AgentWithdrawOrderTitle', 'AgentWithdrawSceneName'].forEach((key) => {
+        const nextValue = inputs[key] ?? '';
+        const prevValue = originInputs[key] ?? '';
+        if (nextValue !== prevValue) {
+          options.push({ key, value: nextValue });
+          nextOriginInputs[key] = nextValue;
         }
       });
       [
@@ -182,6 +211,12 @@ export default function SettingsPaymentGatewayAlipay(props) {
               ? t('当前为证书模式：请填写应用私钥、应用公钥证书、支付宝公钥证书、支付宝根证书。')
               : t('当前为密钥模式：请填写应用私钥与支付宝公钥（RSA2）。')}
           </Text>
+          <Banner
+            type='info'
+            closeIcon={null}
+            description={t('代理提现默认使用支付宝账号转账，当前实现要求填写收款支付宝账号与真实姓名，管理员审核通过后发起打款。')}
+            style={{ marginTop: 12 }}
+          />
           <Row gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }} style={{ marginTop: 16 }}>
             <Col xs={24} sm={24} md={8} lg={8} xl={8}>
               <Form.Switch
@@ -237,6 +272,37 @@ export default function SettingsPaymentGatewayAlipay(props) {
                 label={t('待支付扫描延迟（分钟）')}
                 min={1}
                 step={1}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+              <Form.Switch
+                field='AgentWithdrawEnabled'
+                size='default'
+                checkedText={t('是')}
+                uncheckedText={t('否')}
+                label={t('启用代理提现')}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+              <Form.InputNumber
+                field='AgentWithdrawMinAmount'
+                label={t('代理最小提现金额')}
+                min={0.01}
+                step={0.01}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+              <Form.Input
+                field='AgentWithdrawSceneName'
+                label={t('代理提现转账场景')}
+                placeholder={t('佣金报酬')}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={24} lg={24} xl={24}>
+              <Form.Input
+                field='AgentWithdrawOrderTitle'
+                label={t('代理提现账单标题')}
+                placeholder={t('代理佣金提现')}
               />
             </Col>
           </Row>

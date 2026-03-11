@@ -34,6 +34,10 @@ func IsAlipayConfigured() bool {
 	if !setting.AlipayEnabled {
 		return false
 	}
+	return hasAlipayCredentialConfig()
+}
+
+func hasAlipayCredentialConfig() bool {
 	appID := strings.TrimSpace(setting.AlipayAppID)
 	privateKey := strings.TrimSpace(setting.AlipayPrivateKey)
 	if appID == "" || privateKey == "" {

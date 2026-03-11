@@ -383,32 +383,34 @@ func GetSelf(c *gin.Context) {
 
 	// 构建响应数据，包含用户信息和权限
 	responseData := map[string]interface{}{
-		"id":                user.Id,
-		"username":          user.Username,
-		"display_name":      user.DisplayName,
-		"role":              user.Role,
-		"status":            user.Status,
-		"email":             user.Email,
-		"github_id":         user.GitHubId,
-		"discord_id":        user.DiscordId,
-		"oidc_id":           user.OidcId,
-		"wechat_id":         user.WeChatId,
-		"telegram_id":       user.TelegramId,
-		"group":             user.Group,
-		"quota":             user.Quota,
-		"used_quota":        user.UsedQuota,
-		"request_count":     user.RequestCount,
-		"aff_code":          user.AffCode,
-		"aff_count":         user.AffCount,
-		"aff_quota":         user.AffQuota,
-		"aff_history_quota": user.AffHistoryQuota,
-		"inviter_id":        user.InviterId,
-		"rebate_rate":       user.RebateRate,
-		"linux_do_id":       user.LinuxDOId,
-		"setting":           user.Setting,
-		"stripe_customer":   user.StripeCustomer,
-		"sidebar_modules":   userSetting.SidebarModules, // 正确提取sidebar_modules字段
-		"permissions":       permissions,                // 新增权限字段
+		"id":                     user.Id,
+		"username":               user.Username,
+		"display_name":           user.DisplayName,
+		"withdraw_payee_account": user.WithdrawPayeeAccount,
+		"withdraw_payee_name":    user.WithdrawPayeeName,
+		"role":                   user.Role,
+		"status":                 user.Status,
+		"email":                  user.Email,
+		"github_id":              user.GitHubId,
+		"discord_id":             user.DiscordId,
+		"oidc_id":                user.OidcId,
+		"wechat_id":              user.WeChatId,
+		"telegram_id":            user.TelegramId,
+		"group":                  user.Group,
+		"quota":                  user.Quota,
+		"used_quota":             user.UsedQuota,
+		"request_count":          user.RequestCount,
+		"aff_code":               user.AffCode,
+		"aff_count":              user.AffCount,
+		"aff_quota":              user.AffQuota,
+		"aff_history_quota":      user.AffHistoryQuota,
+		"inviter_id":             user.InviterId,
+		"rebate_rate":            user.RebateRate,
+		"linux_do_id":            user.LinuxDOId,
+		"setting":                user.Setting,
+		"stripe_customer":        user.StripeCustomer,
+		"sidebar_modules":        userSetting.SidebarModules, // 正确提取sidebar_modules字段
+		"permissions":            permissions,                // 新增权限字段
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -622,6 +624,44 @@ func UpdateSelf(c *gin.Context) {
 			return
 		}
 
+		common.ApiSuccessI18n(c, i18n.MsgUpdateSuccess, nil)
+		return
+	}
+
+	// 检查是否是提现账户更新请求
+	_, accountExists := requestData["withdraw_payee_account"]
+	_, nameExists := requestData["withdraw_payee_name"]
+	if accountExists || nameExists {
+		userId := c.GetInt("id")
+		account := ""
+		if v, ok := requestData["withdraw_payee_account"]; ok && v != nil {
+			account = strings.TrimSpace(fmt.Sprintf("%v", v))
+		}
+		name := ""
+		if v, ok := requestData["withdraw_payee_name"]; ok && v != nil {
+			name = strings.TrimSpace(fmt.Sprintf("%v", v))
+		}
+		if (account == "") != (name == "") {
+			common.ApiErrorI18n(c, i18n.MsgInvalidInput)
+			return
+		}
+		if err := common.Validate.Var(account, "max=128"); err != nil {
+			common.ApiErrorI18n(c, i18n.MsgInvalidInput)
+			return
+		}
+		if err := common.Validate.Var(name, "max=64"); err != nil {
+			common.ApiErrorI18n(c, i18n.MsgInvalidInput)
+			return
+		}
+		if err := model.DB.Model(&model.User{}).
+			Where("id = ?", userId).
+			Updates(map[string]any{
+				"withdraw_payee_account": account,
+				"withdraw_payee_name":    name,
+			}).Error; err != nil {
+			common.ApiError(c, err)
+			return
+		}
 		common.ApiSuccessI18n(c, i18n.MsgUpdateSuccess, nil)
 		return
 	}

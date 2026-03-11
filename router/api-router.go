@@ -258,6 +258,9 @@ func SetApiRouter(router *gin.Engine) {
 			agentRoute.GET("/topups", controller.GetAgentTopUps)
 			agentRoute.GET("/rebates", controller.GetAgentRebates)
 			agentRoute.GET("/rebates/stats", controller.GetAgentRebateStats)
+			agentRoute.GET("/withdrawals", controller.GetAgentWithdrawals)
+			agentRoute.GET("/withdrawals/stats", controller.GetAgentWithdrawalStats)
+			agentRoute.POST("/withdrawals", controller.CreateAgentWithdrawal)
 		}
 		agentAdminRoute := apiRouter.Group("/agent/admin")
 		agentAdminRoute.Use(middleware.AdminAuth())
@@ -265,6 +268,10 @@ func SetApiRouter(router *gin.Engine) {
 			agentAdminRoute.GET("/summary", controller.GetAdminAgentSummary)
 			agentAdminRoute.GET("/list", controller.GetAdminAgentList)
 			agentAdminRoute.GET("/rank", controller.GetAdminAgentRank)
+			agentAdminRoute.GET("/withdrawals", controller.GetAdminAgentWithdrawals)
+			agentAdminRoute.POST("/withdrawals/:id/review", controller.ReviewAdminAgentWithdrawal)
+			agentAdminRoute.POST("/withdrawals/:id/sync", controller.SyncAdminAgentWithdrawal)
+			agentAdminRoute.POST("/withdrawals/:id/fail", controller.FailAdminAgentWithdrawal)
 		}
 
 		tokenRoute := apiRouter.Group("/token")

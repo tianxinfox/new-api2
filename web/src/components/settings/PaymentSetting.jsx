@@ -70,6 +70,10 @@ const PaymentSetting = () => {
     AlipayAppPublicCert: '',
     AlipayAlipayPublicCert: '',
     AlipayRootCert: '',
+    AgentWithdrawEnabled: false,
+    AgentWithdrawMinAmount: 1,
+    AgentWithdrawOrderTitle: '代理佣金提现',
+    AgentWithdrawSceneName: '佣金报酬',
   });
 
   let [loading, setLoading] = useState(false);
@@ -125,10 +129,12 @@ const PaymentSetting = () => {
           case 'WeChatDelayedCheckMinutes':
           case 'AlipayOrderExpireMinutes':
           case 'AlipayPendingSweepDelayMinutes':
+          case 'AgentWithdrawMinAmount':
             newInputs[item.key] = parseFloat(item.value);
             break;
           case 'AlipaySandbox':
           case 'AlipayUseCertificateMode':
+          case 'AgentWithdrawEnabled':
             newInputs[item.key] = toBoolean(item.value);
             break;
           default:
