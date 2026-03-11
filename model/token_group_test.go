@@ -104,3 +104,34 @@ func TestGetSatisfiedChannelCountForRetryFromCache(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
 }
+
+func TestGetSatisfiedChannelCountForRetryDB(t *testing.T) {
+	previousMemoryCacheEnabled := common.MemoryCacheEnabled
+	previousGroupCol := commonGroupCol
+	t.Cleanup(func() {
+		common.MemoryCacheEnabled = previousMemoryCacheEnabled
+		commonGroupCol = previousGroupCol
+		DB.Exec("DELETE FROM abilities")
+	})
+
+	require.NoError(t, DB.AutoMigrate(&Ability{}))
+
+	common.MemoryCacheEnabled = false
+	commonGroupCol = "`group`"
+
+	priorityHigh := int64(10)
+	priorityLow := int64(5)
+	require.NoError(t, DB.Create(&[]Ability{
+		{Group: "vip", Model: "gpt-4o", ChannelId: 1, Enabled: true, Priority: &priorityHigh, Weight: 100},
+		{Group: "vip", Model: "gpt-4o", ChannelId: 2, Enabled: true, Priority: &priorityHigh, Weight: 100},
+		{Group: "vip", Model: "gpt-4o", ChannelId: 3, Enabled: true, Priority: &priorityLow, Weight: 100},
+	}).Error)
+
+	count, err := GetSatisfiedChannelCountForRetry("vip", "gpt-4o", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
+
+	count, err = GetSatisfiedChannelCountForRetry("vip", "gpt-4o", 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+}
