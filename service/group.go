@@ -3,6 +3,7 @@ package service
 import (
 	"strings"
 
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
@@ -51,6 +52,42 @@ func GetUserAutoGroup(userGroup string) []string {
 		}
 	}
 	return autoGroups
+}
+
+func IsAutoTokenGroup(tokenGroup string) bool {
+	groups := model.SplitTokenGroup(tokenGroup)
+	return len(groups) == 1 && groups[0] == "auto"
+}
+
+func GetTokenRouteGroups(userGroup, tokenGroup string) []string {
+	if tokenGroup == "" {
+		if userGroup == "" {
+			return []string{}
+		}
+		return []string{userGroup}
+	}
+	if IsAutoTokenGroup(tokenGroup) {
+		return GetUserAutoGroup(userGroup)
+	}
+	routeGroups := make([]string, 0)
+	for _, groupName := range model.SplitTokenGroup(tokenGroup) {
+		if !GroupInUserUsableGroups(userGroup, groupName) {
+			continue
+		}
+		if groupName != "auto" && !ratio_setting.ContainsGroupRatio(groupName) {
+			continue
+		}
+		routeGroups = append(routeGroups, groupName)
+	}
+	return routeGroups
+}
+
+func GetPrimaryTokenGroup(userGroup, tokenGroup string) string {
+	groups := GetTokenRouteGroups(userGroup, tokenGroup)
+	if len(groups) == 0 {
+		return ""
+	}
+	return groups[0]
 }
 
 // GetUserGroupRatio 获取用户使用某个分组的倍率

@@ -27,9 +27,11 @@ type Token struct {
 	AllowIps           *string        `json:"allow_ips" gorm:"default:''"`
 	UsedQuota          int            `json:"used_quota" gorm:"default:0"` // used quota
 	Group              string         `json:"group" gorm:"default:''"`
-	CrossGroupRetry    bool           `json:"cross_group_retry"` // 跨分组重试，仅auto分组有效
+	CrossGroupRetry    bool           `json:"cross_group_retry"` // auto 分组时控制跨分组重试；多分组令牌默认按顺序降级
 	DeletedAt          gorm.DeletedAt `gorm:"index"`
 }
+
+const MaxTokenGroupCount = 10
 
 func (token *Token) Clean() {
 	token.Key = ""
@@ -55,6 +57,55 @@ func (token *Token) GetIpLimits() []string {
 		}
 	}
 	return ipLimits
+}
+
+func SplitTokenGroup(group string) []string {
+	parts := strings.Split(group, ",")
+	groups := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if _, ok := seen[part]; ok {
+			continue
+		}
+		seen[part] = struct{}{}
+		groups = append(groups, part)
+	}
+	return groups
+}
+
+func NormalizeTokenGroup(group string) (string, error) {
+	groups := SplitTokenGroup(group)
+	if len(groups) <= 1 {
+		if len(groups) == 0 {
+			return "", nil
+		}
+		return groups[0], nil
+	}
+	if len(groups) > MaxTokenGroupCount {
+		return "", fmt.Errorf("令牌最多只能选择 %d 个分组", MaxTokenGroupCount)
+	}
+	for _, item := range groups {
+		if item == "auto" {
+			return "", errors.New("auto 分组不能与其他分组同时使用")
+		}
+	}
+	return strings.Join(groups, ","), nil
+}
+
+func (token *Token) GetGroupList() []string {
+	return SplitTokenGroup(token.Group)
+}
+
+func (token *Token) GetPrimaryGroup() string {
+	groups := token.GetGroupList()
+	if len(groups) == 0 {
+		return ""
+	}
+	return groups[0]
 }
 
 func GetAllUserTokens(userId int, startIdx int, num int) ([]*Token, error) {

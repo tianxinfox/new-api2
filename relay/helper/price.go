@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -23,11 +24,15 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 		GroupSpecialRatio: -1,
 	}
 
+	if usingGroup := common.GetContextKeyString(ctx, constant.ContextKeyUsingGroup); usingGroup != "" {
+		relayInfo.UsingGroup = usingGroup
+	}
+
 	// check auto group
-	autoGroup, exists := ctx.Get("auto_group")
-	if exists {
+	autoGroup := common.GetContextKeyString(ctx, constant.ContextKeyAutoGroup)
+	if autoGroup != "" {
 		logger.LogDebug(ctx, fmt.Sprintf("final group: %s", autoGroup))
-		relayInfo.UsingGroup = autoGroup.(string)
+		relayInfo.UsingGroup = autoGroup
 	}
 
 	// check user group special ratio

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/samber/lo"
 	"gorm.io/gorm"
@@ -86,6 +87,44 @@ func getPriority(group string, model string, retry int) (int, error) {
 		priorityToUse = priorities[retry]
 	}
 	return priorityToUse, nil
+}
+
+func getSatisfiedChannelPriorityCountDB(group string, model string) (int, error) {
+	var count int64
+	err := DB.Model(&Ability{}).
+		Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true).
+		Distinct("priority").
+		Count(&count).Error
+	if err != nil {
+		return 0, err
+	}
+	if count == 0 {
+		normalizedModel := ratio_setting.FormatMatchingModelName(model)
+		if normalizedModel != model {
+			err = DB.Model(&Ability{}).
+				Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, normalizedModel, true).
+				Distinct("priority").
+				Count(&count).Error
+			if err != nil {
+				return 0, err
+			}
+		}
+	}
+	return int(count), nil
+}
+
+func getSatisfiedChannelCountForRetryDB(group string, model string, retry int) (int, error) {
+	channelQuery, err := getChannelQuery(group, model, retry)
+	if err != nil {
+		return 0, err
+	}
+
+	var count int64
+	err = channelQuery.Distinct("channel_id").Count(&count).Error
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
 }
 
 func getChannelQuery(group string, model string, retry int) (*gorm.DB, error) {

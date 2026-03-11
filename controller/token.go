@@ -9,10 +9,28 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/gin-gonic/gin"
 )
+
+func validateTokenGroupAccess(userId int, tokenGroup string) error {
+	userGroup, err := model.GetUserGroup(userId, false)
+	if err != nil {
+		return err
+	}
+	for _, groupName := range model.SplitTokenGroup(tokenGroup) {
+		if !service.GroupInUserUsableGroups(userGroup, groupName) {
+			return fmt.Errorf("无权使用分组: %s", groupName)
+		}
+		if groupName != "auto" && !ratio_setting.ContainsGroupRatio(groupName) {
+			return fmt.Errorf("分组已被弃用: %s", groupName)
+		}
+	}
+	return nil
+}
 
 func GetAllTokens(c *gin.Context) {
 	userId := c.GetInt("id")
@@ -148,6 +166,16 @@ func AddToken(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
+	token.Group, err = model.NormalizeTokenGroup(token.Group)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	err = validateTokenGroupAccess(c.GetInt("id"), token.Group)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	// 非无限额度时，检查额度值是否超出有效范围
 	if !token.UnlimitedQuota {
 		if token.RemainQuota < 0 {
@@ -233,6 +261,16 @@ func UpdateToken(c *gin.Context) {
 	}
 	if len(token.Name) > 50 {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
+		return
+	}
+	token.Group, err = model.NormalizeTokenGroup(token.Group)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	err = validateTokenGroupAccess(userId, token.Group)
+	if err != nil {
+		common.ApiError(c, err)
 		return
 	}
 	if !token.UnlimitedQuota {

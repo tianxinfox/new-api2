@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/common/limiter"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 
 	"github.com/gin-gonic/gin"
@@ -178,9 +179,11 @@ func ModelRequestRateLimit() func(c *gin.Context) {
 		successMaxCount := setting.ModelRequestRateLimitSuccessCount
 
 		// 获取分组
-		group := common.GetContextKeyString(c, constant.ContextKeyTokenGroup)
+		userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+		tokenGroup := common.GetContextKeyString(c, constant.ContextKeyTokenGroup)
+		group := service.GetPrimaryTokenGroup(userGroup, tokenGroup)
 		if group == "" {
-			group = common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+			group = userGroup
 		}
 
 		//获取分组的限流配置

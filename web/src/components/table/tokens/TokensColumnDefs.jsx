@@ -88,8 +88,26 @@ const renderStatus = (text, record, t) => {
 };
 
 // Render group column
+const parseTokenGroups = (groupText) => {
+  if (!groupText) {
+    return [];
+  }
+  const seen = new Set();
+  return `${groupText}`
+    .split(',')
+    .map((group) => group.trim())
+    .filter((group) => {
+      if (!group || seen.has(group)) {
+        return false;
+      }
+      seen.add(group);
+      return true;
+    });
+};
+
 const renderGroupColumn = (text, record, t) => {
-  if (text === 'auto') {
+  const groups = parseTokenGroups(text);
+  if (groups.length === 1 && groups[0] === 'auto') {
     return (
       <Tooltip
         content={t(
@@ -104,7 +122,23 @@ const renderGroupColumn = (text, record, t) => {
       </Tooltip>
     );
   }
-  return renderGroup(text);
+  if (groups.length > 1) {
+    return (
+      <Tooltip content={t('会按所示顺序自动尝试这些分组')} position='top'>
+        <Space wrap>
+          {groups.map((group, index) => (
+            <Tag key={`${group}-${index}`} color='blue' shape='circle'>
+              {`${index + 1}. ${group}`}
+            </Tag>
+          ))}
+          <Tag color='green' shape='circle'>
+            {t('自动切换')}
+          </Tag>
+        </Space>
+      </Tooltip>
+    );
+  }
+  return renderGroup(groups.length === 1 ? groups[0] : text);
 };
 
 // Render token key column with show/hide and copy functionality
