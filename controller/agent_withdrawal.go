@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -14,10 +15,48 @@ import (
 )
 
 func IsAgentWithdrawConfigured() bool {
-	return setting.AgentWithdrawEnabled && hasAlipayCredentialConfig()
+	return setting.AgentWithdrawEnabled && hasAlipayCredentialConfig() && hasAgentWithdrawTransferSceneReportInfosConfig()
 }
 
-func buildAgentWithdrawalTransferPayload(withdrawal *model.AgentWithdrawal) alipay.FundTransUniTransfer {
+func parseAgentWithdrawTransferSceneReportInfos(raw string) ([]*alipay.TransferSceneReportInfo, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, errors.New("支付宝提现场景上报信息不能为空")
+	}
+
+	var infos []*alipay.TransferSceneReportInfo
+	if err := common.UnmarshalJsonStr(raw, &infos); err != nil {
+		return nil, fmt.Errorf("支付宝提现场景上报信息格式错误: %w", err)
+	}
+	if len(infos) == 0 {
+		return nil, errors.New("支付宝提现场景上报信息至少填写一项")
+	}
+	for i, info := range infos {
+		if info == nil {
+			return nil, fmt.Errorf("支付宝提现场景上报信息第 %d 项不能为空", i+1)
+		}
+		info.InfoType = strings.TrimSpace(info.InfoType)
+		info.InfoContent = strings.TrimSpace(info.InfoContent)
+		if info.InfoType == "" {
+			return nil, fmt.Errorf("支付宝提现场景上报信息第 %d 项缺少 info_type", i+1)
+		}
+		if info.InfoContent == "" {
+			return nil, fmt.Errorf("支付宝提现场景上报信息第 %d 项缺少 info_content", i+1)
+		}
+	}
+	return infos, nil
+}
+
+func validateAgentWithdrawTransferSceneReportInfos(raw string) error {
+	_, err := parseAgentWithdrawTransferSceneReportInfos(raw)
+	return err
+}
+
+func hasAgentWithdrawTransferSceneReportInfosConfig() bool {
+	return validateAgentWithdrawTransferSceneReportInfos(setting.AgentWithdrawTransferSceneReportInfos) == nil
+}
+
+func buildAgentWithdrawalTransferPayload(withdrawal *model.AgentWithdrawal) (alipay.FundTransUniTransfer, error) {
 	orderTitle := strings.TrimSpace(setting.AgentWithdrawOrderTitle)
 	if orderTitle == "" {
 		orderTitle = "代理佣金提现"
@@ -26,21 +65,26 @@ func buildAgentWithdrawalTransferPayload(withdrawal *model.AgentWithdrawal) alip
 	if sceneName == "" {
 		sceneName = "佣金报酬"
 	}
+	reportInfos, err := parseAgentWithdrawTransferSceneReportInfos(setting.AgentWithdrawTransferSceneReportInfos)
+	if err != nil {
+		return alipay.FundTransUniTransfer{}, err
+	}
 
 	return alipay.FundTransUniTransfer{
-		OutBizNo:          withdrawal.TradeNo,
-		TransAmount:       fmt.Sprintf("%.2f", withdrawal.Amount),
-		ProductCode:       "TRANS_ACCOUNT_NO_PWD",
-		BizScene:          "DIRECT_TRANSFER",
-		OrderTitle:        orderTitle,
-		Remark:            strings.TrimSpace(withdrawal.AdminRemark),
-		TransferSceneName: sceneName,
+		OutBizNo:                withdrawal.TradeNo,
+		TransAmount:             fmt.Sprintf("%.2f", withdrawal.Amount),
+		ProductCode:             "TRANS_ACCOUNT_NO_PWD",
+		BizScene:                "DIRECT_TRANSFER",
+		OrderTitle:              orderTitle,
+		Remark:                  strings.TrimSpace(withdrawal.AdminRemark),
+		TransferSceneName:       sceneName,
+		TransferSceneReportInfo: reportInfos,
 		PayeeInfo: &alipay.PayeeInfo{
 			Identity:     withdrawal.PayeeAccount,
 			IdentityType: "ALIPAY_LOGON_ID",
 			Name:         withdrawal.PayeeName,
 		},
-	}
+	}, nil
 }
 
 func executeAgentWithdrawalTransfer(ctx context.Context, withdrawal *model.AgentWithdrawal) (*alipay.FundTransUniTransferRsp, string, error) {
@@ -48,7 +92,10 @@ func executeAgentWithdrawalTransfer(ctx context.Context, withdrawal *model.Agent
 	if err != nil {
 		return nil, "", err
 	}
-	param := buildAgentWithdrawalTransferPayload(withdrawal)
+	param, err := buildAgentWithdrawalTransferPayload(withdrawal)
+	if err != nil {
+		return nil, "", err
+	}
 	rsp, err := client.FundTransUniTransfer(ctx, param)
 	errMsg := ""
 	if err != nil {
@@ -64,9 +111,6 @@ func executeAgentWithdrawalTransfer(ctx context.Context, withdrawal *model.Agent
 	}
 	if rsp == nil {
 		return nil, payload, fmt.Errorf("alipay fund transfer returned empty response")
-	}
-	if rsp.Code == "20000" {
-		return rsp, payload, nil
 	}
 	if rsp.Code != "10000" {
 		msg := rsp.SubMsg

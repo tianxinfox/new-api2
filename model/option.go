@@ -113,6 +113,7 @@ func InitOptionMap() {
 	common.OptionMap["AgentWithdrawMinAmount"] = strconv.FormatFloat(setting.AgentWithdrawMinAmount, 'f', -1, 64)
 	common.OptionMap["AgentWithdrawOrderTitle"] = setting.AgentWithdrawOrderTitle
 	common.OptionMap["AgentWithdrawSceneName"] = setting.AgentWithdrawSceneName
+	common.OptionMap["AgentWithdrawTransferSceneReportInfos"] = setting.AgentWithdrawTransferSceneReportInfos
 	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
 	common.OptionMap["Chats"] = setting.Chats2JsonString()
 	common.OptionMap["AutoGroups"] = setting.AutoGroups2JsonString()
@@ -453,6 +454,8 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.AgentWithdrawOrderTitle = value
 	case "AgentWithdrawSceneName":
 		setting.AgentWithdrawSceneName = value
+	case "AgentWithdrawTransferSceneReportInfos":
+		setting.AgentWithdrawTransferSceneReportInfos = value
 	case "TopupGroupRatio":
 		err = common.UpdateTopupGroupRatioByJSONString(value)
 	case "GitHubClientId":

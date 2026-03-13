@@ -429,6 +429,11 @@ const AgentOverview = () => {
       render: (v, record) => v || record.applicant_remark || '-',
     },
     {
+      title: t('失败原因'),
+      dataIndex: 'failure_reason',
+      render: (v) => v || '-',
+    },
+    {
       title: t('操作'),
       dataIndex: 'operate',
       render: (_, record) => (

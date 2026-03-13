@@ -44,6 +44,7 @@ export default function SettingsPaymentGatewayAlipay(props) {
     AgentWithdrawMinAmount: 1,
     AgentWithdrawOrderTitle: '代理佣金提现',
     AgentWithdrawSceneName: '佣金报酬',
+    AgentWithdrawTransferSceneReportInfos: '',
   });
   const [originInputs, setOriginInputs] = useState({});
   const formApiRef = useRef(null);
@@ -67,6 +68,8 @@ export default function SettingsPaymentGatewayAlipay(props) {
         AgentWithdrawMinAmount: props.options.AgentWithdrawMinAmount || 1,
         AgentWithdrawOrderTitle: props.options.AgentWithdrawOrderTitle || '代理佣金提现',
         AgentWithdrawSceneName: props.options.AgentWithdrawSceneName || '佣金报酬',
+        AgentWithdrawTransferSceneReportInfos:
+          props.options.AgentWithdrawTransferSceneReportInfos || '',
       };
       setInputs(currentInputs);
       setOriginInputs({ ...currentInputs });
@@ -78,35 +81,34 @@ export default function SettingsPaymentGatewayAlipay(props) {
     setLoading(true);
     try {
       const options = [];
-      const nextOriginInputs = { ...originInputs };
+      const successfulOriginInputs = { ...originInputs };
       const skippedSensitiveKeys = [];
-      if (originInputs.AlipayEnabled !== inputs.AlipayEnabled) {
+      let clearedTransferSceneReportInfos = false;
+
+      const pushOption = (key, value, normalizedValue = value) => {
         options.push({
-          key: 'AlipayEnabled',
-          value: inputs.AlipayEnabled ? 'true' : 'false',
+          key,
+          value,
+          normalizedValue,
         });
-        nextOriginInputs.AlipayEnabled = inputs.AlipayEnabled;
+      };
+
+      if (originInputs.AlipayEnabled !== inputs.AlipayEnabled) {
+        pushOption('AlipayEnabled', inputs.AlipayEnabled ? 'true' : 'false', inputs.AlipayEnabled);
       }
       if (originInputs.AlipaySandbox !== inputs.AlipaySandbox) {
-        options.push({
-          key: 'AlipaySandbox',
-          value: inputs.AlipaySandbox ? 'true' : 'false',
-        });
-        nextOriginInputs.AlipaySandbox = inputs.AlipaySandbox;
+        pushOption('AlipaySandbox', inputs.AlipaySandbox ? 'true' : 'false', inputs.AlipaySandbox);
       }
       if (originInputs.AlipayUseCertificateMode !== inputs.AlipayUseCertificateMode) {
-        options.push({
-          key: 'AlipayUseCertificateMode',
-          value: inputs.AlipayUseCertificateMode ? 'true' : 'false',
-        });
-        nextOriginInputs.AlipayUseCertificateMode = inputs.AlipayUseCertificateMode;
+        pushOption(
+          'AlipayUseCertificateMode',
+          inputs.AlipayUseCertificateMode ? 'true' : 'false',
+          inputs.AlipayUseCertificateMode,
+        );
       }
       if (originInputs.AlipayPayMode !== inputs.AlipayPayMode) {
-        options.push({
-          key: 'AlipayPayMode',
-          value: inputs.AlipayPayMode || 'page',
-        });
-        nextOriginInputs.AlipayPayMode = inputs.AlipayPayMode || 'page';
+        const normalizedPayMode = inputs.AlipayPayMode || 'page';
+        pushOption('AlipayPayMode', normalizedPayMode, normalizedPayMode);
       }
       ['AlipayOrderExpireMinutes', 'AlipayPendingSweepDelayMinutes'].forEach((key) => {
         const nextValue = Number(inputs[key]);
@@ -115,29 +117,31 @@ export default function SettingsPaymentGatewayAlipay(props) {
           return;
         }
         if (nextValue !== prevValue) {
-          options.push({ key, value: String(Math.floor(nextValue)) });
-          nextOriginInputs[key] = Math.floor(nextValue);
+          const normalizedValue = Math.floor(nextValue);
+          pushOption(key, String(normalizedValue), normalizedValue);
         }
       });
       if (originInputs.AgentWithdrawEnabled !== inputs.AgentWithdrawEnabled) {
-        options.push({
-          key: 'AgentWithdrawEnabled',
-          value: inputs.AgentWithdrawEnabled ? 'true' : 'false',
-        });
-        nextOriginInputs.AgentWithdrawEnabled = inputs.AgentWithdrawEnabled;
+        pushOption(
+          'AgentWithdrawEnabled',
+          inputs.AgentWithdrawEnabled ? 'true' : 'false',
+          inputs.AgentWithdrawEnabled,
+        );
       }
       const nextMinAmount = Number(inputs.AgentWithdrawMinAmount);
       const prevMinAmount = Number(originInputs.AgentWithdrawMinAmount);
       if (Number.isFinite(nextMinAmount) && nextMinAmount > 0 && nextMinAmount !== prevMinAmount) {
-        options.push({ key: 'AgentWithdrawMinAmount', value: String(nextMinAmount) });
-        nextOriginInputs.AgentWithdrawMinAmount = nextMinAmount;
+        pushOption('AgentWithdrawMinAmount', String(nextMinAmount), nextMinAmount);
       }
-      ['AgentWithdrawOrderTitle', 'AgentWithdrawSceneName'].forEach((key) => {
+      [
+        'AgentWithdrawOrderTitle',
+        'AgentWithdrawSceneName',
+        'AgentWithdrawTransferSceneReportInfos',
+      ].forEach((key) => {
         const nextValue = inputs[key] ?? '';
         const prevValue = originInputs[key] ?? '';
         if (nextValue !== prevValue) {
-          options.push({ key, value: nextValue });
-          nextOriginInputs[key] = nextValue;
+          pushOption(key, nextValue, nextValue);
         }
       });
       [
@@ -156,8 +160,7 @@ export default function SettingsPaymentGatewayAlipay(props) {
           return;
         }
         if (nextValue !== prevValue) {
-          options.push({ key, value: nextValue });
-          nextOriginInputs[key] = nextValue;
+          pushOption(key, nextValue, nextValue);
         }
       });
       if (skippedSensitiveKeys.length > 0) {
@@ -168,19 +171,32 @@ export default function SettingsPaymentGatewayAlipay(props) {
         setLoading(false);
         return;
       }
-      const requestQueue = options.map((opt) =>
-        API.put('/api/option/', {
+      const failedMessages = [];
+      for (const opt of options) {
+        const res = await API.put('/api/option/', {
           key: opt.key,
           value: opt.value,
-        }),
-      );
-      const results = await Promise.all(requestQueue);
-      const errorResults = results.filter((res) => !res.data.success);
-      if (errorResults.length > 0) {
-        errorResults.forEach((res) => showError(res.data.message));
+        });
+        if (res.data.success) {
+          successfulOriginInputs[opt.key] = opt.normalizedValue;
+          if (opt.key === 'AgentWithdrawTransferSceneReportInfos' && String(opt.value).trim() === '') {
+            clearedTransferSceneReportInfos = true;
+          }
+        } else {
+          failedMessages.push(res.data.message);
+          break;
+        }
+      }
+      if (failedMessages.length > 0) {
+        failedMessages.forEach((msg) => showError(msg));
+        setOriginInputs(successfulOriginInputs);
+        props.refresh?.();
       } else {
         showSuccess(t('更新成功'));
-        setOriginInputs(nextOriginInputs);
+        setOriginInputs(successfulOriginInputs);
+        if (clearedTransferSceneReportInfos) {
+          showInfo(t('已清空提现场景上报信息，代理提现将显示为配置未完成。'));
+        }
         props.refresh?.();
       }
     } catch (error) {
@@ -214,7 +230,7 @@ export default function SettingsPaymentGatewayAlipay(props) {
           <Banner
             type='info'
             closeIcon={null}
-            description={t('代理提现默认使用支付宝账号转账，当前实现要求填写收款支付宝账号与真实姓名，管理员审核通过后发起打款。')}
+            description={t('代理提现默认使用支付宝账号转账，当前实现要求填写收款支付宝账号、真实姓名，以及支付宝要求的转账场景上报信息 JSON。管理员审核通过后发起打款。')}
             style={{ marginTop: 12 }}
           />
           <Row gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }} style={{ marginTop: 16 }}>
@@ -304,6 +320,19 @@ export default function SettingsPaymentGatewayAlipay(props) {
                 label={t('代理提现账单标题')}
                 placeholder={t('代理佣金提现')}
               />
+            </Col>
+            <Col xs={24} sm={24} md={24} lg={24} xl={24}>
+              <Form.TextArea
+                field='AgentWithdrawTransferSceneReportInfos'
+                label={t('提现场景上报信息 JSON')}
+                autosize
+                placeholder={'[\n  {\n    "info_type": "CONTENT",\n    "info_content": "代理佣金提现"\n  }\n]'}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={24} lg={24} xl={24}>
+              <Text type='tertiary'>
+                {t('请按支付宝转账场景要求填写 JSON 数组，每项包含 info_type 和 info_content。未填写或格式错误会导致提现配置未完成。')}
+              </Text>
             </Col>
           </Row>
           <Form.TextArea

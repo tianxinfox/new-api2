@@ -21,3 +21,4 @@ var AgentWithdrawEnabled = false
 var AgentWithdrawMinAmount = 1.0
 var AgentWithdrawOrderTitle = "代理佣金提现"
 var AgentWithdrawSceneName = "佣金报酬"
+var AgentWithdrawTransferSceneReportInfos = ""
