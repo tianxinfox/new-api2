@@ -477,7 +477,7 @@ export const getTokensColumns = ({
       title: '',
       dataIndex: 'operate',
       fixed: 'right',
-      width: 200,
+      width: 220,
       render: (text, record, index) =>
         renderOperations(
           text,
