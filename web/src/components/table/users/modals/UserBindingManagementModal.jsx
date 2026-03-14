@@ -55,6 +55,7 @@ const UserBindingManagementModal = ({
   const [bindingLoading, setBindingLoading] = React.useState(false);
   const [showBoundOnly, setShowBoundOnly] = React.useState(true);
   const [statusInfo, setStatusInfo] = React.useState({});
+  const [userInfo, setUserInfo] = React.useState({});
   const [customOAuthBindings, setCustomOAuthBindings] = React.useState([]);
   const [bindingActionLoading, setBindingActionLoading] = React.useState({});
 
@@ -63,9 +64,10 @@ const UserBindingManagementModal = ({
 
     setBindingLoading(true);
     try {
-      const [statusRes, customBindingRes] = await Promise.all([
+      const [statusRes, customBindingRes, userRes] = await Promise.all([
         API.get('/api/status'),
         API.get(`/api/user/${userId}/oauth/bindings`),
+        API.get(`/api/user/${userId}`),
       ]);
 
       if (statusRes.data?.success) {
@@ -78,6 +80,12 @@ const UserBindingManagementModal = ({
         setCustomOAuthBindings(customBindingRes.data.data || []);
       } else {
         showError(customBindingRes.data?.message || t('操作失败'));
+      }
+
+      if (userRes.data?.success) {
+        setUserInfo(userRes.data.data || {});
+      } else {
+        showError(userRes.data?.message || t('操作失败'));
       }
     } catch (error) {
       showError(
@@ -118,6 +126,10 @@ const UserBindingManagementModal = ({
             showError(res.data?.message || t('操作失败'));
             return;
           }
+          setUserInfo((prev) => ({
+            ...prev,
+            [bindingItem.field]: '',
+          }));
           formApiRef.current?.setValue(bindingItem.field, '');
           showSuccess(t('解绑成功'));
         } catch (error) {
@@ -167,15 +179,13 @@ const UserBindingManagementModal = ({
     });
   };
 
-  const currentValues = formApiRef.current?.getValues?.() || {};
-
   const builtInBindingItems = [
     {
       key: 'email',
       field: 'email',
       name: t('邮箱'),
       enabled: true,
-      value: currentValues.email,
+      value: userInfo.email,
       icon: (
         <IconMail
           size='default'
@@ -188,7 +198,7 @@ const UserBindingManagementModal = ({
       field: 'github_id',
       name: 'GitHub',
       enabled: Boolean(statusInfo.github_oauth),
-      value: currentValues.github_id,
+      value: userInfo.github_id,
       icon: (
         <IconGithubLogo
           size='default'
@@ -201,7 +211,7 @@ const UserBindingManagementModal = ({
       field: 'discord_id',
       name: 'Discord',
       enabled: Boolean(statusInfo.discord_oauth),
-      value: currentValues.discord_id,
+      value: userInfo.discord_id,
       icon: (
         <SiDiscord size={20} className='text-slate-600 dark:text-slate-300' />
       ),
@@ -211,7 +221,7 @@ const UserBindingManagementModal = ({
       field: 'oidc_id',
       name: 'OIDC',
       enabled: Boolean(statusInfo.oidc_enabled),
-      value: currentValues.oidc_id,
+      value: userInfo.oidc_id,
       icon: (
         <IconLink
           size='default'
@@ -224,7 +234,7 @@ const UserBindingManagementModal = ({
       field: 'wechat_id',
       name: t('微信'),
       enabled: Boolean(statusInfo.wechat_login),
-      value: currentValues.wechat_id,
+      value: userInfo.wechat_id,
       icon: (
         <SiWechat size={20} className='text-slate-600 dark:text-slate-300' />
       ),
@@ -234,7 +244,7 @@ const UserBindingManagementModal = ({
       field: 'telegram_id',
       name: 'Telegram',
       enabled: Boolean(statusInfo.telegram_oauth),
-      value: currentValues.telegram_id,
+      value: userInfo.telegram_id,
       icon: (
         <SiTelegram size={20} className='text-slate-600 dark:text-slate-300' />
       ),
@@ -244,7 +254,7 @@ const UserBindingManagementModal = ({
       field: 'linux_do_id',
       name: 'LinuxDO',
       enabled: Boolean(statusInfo.linuxdo_oauth),
-      value: currentValues.linux_do_id,
+      value: userInfo.linux_do_id,
       icon: (
         <SiLinux size={20} className='text-slate-600 dark:text-slate-300' />
       ),
