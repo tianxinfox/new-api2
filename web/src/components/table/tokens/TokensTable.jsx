@@ -78,7 +78,7 @@ const TokensTable = (tokensData) => {
   const tableColumns = useMemo(() => {
     return compactMode
       ? columns.map((col) => {
-          if (col.dataIndex === 'operate') {
+          if (col.dataIndex === 'operate' || col.key === 'token_key') {
             const { fixed, ...rest } = col;
             return rest;
           }
