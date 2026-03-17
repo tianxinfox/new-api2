@@ -60,6 +60,7 @@ const AgentUsers = lazy(() => import('./pages/Agent/AgentUsers'));
 const AgentTopups = lazy(() => import('./pages/Agent/AgentTopups'));
 const AgentRebates = lazy(() => import('./pages/Agent/AgentRebates'));
 const AdminAgentOverview = lazy(() => import('./pages/Admin/AgentOverview'));
+const AdminTopupOverview = lazy(() => import('./pages/Admin/TopupOverview'));
 
 function DynamicOAuth2Callback() {
   const { provider } = useParams();
@@ -206,6 +207,16 @@ function App() {
             <AdminRoute>
               <Suspense fallback={<Loading />}>
                 <AdminAgentOverview />
+              </Suspense>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/admin/topups'
+          element={
+            <AdminRoute>
+              <Suspense fallback={<Loading />}>
+                <AdminTopupOverview />
               </Suspense>
             </AdminRoute>
           }

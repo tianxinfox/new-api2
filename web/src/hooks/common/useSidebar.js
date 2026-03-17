@@ -60,6 +60,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     enabled: true,
     channel: true,
     adminAgentOverview: true,
+    adminTopupOverview: true,
     models: true,
     deployment: true,
     redemption: true,

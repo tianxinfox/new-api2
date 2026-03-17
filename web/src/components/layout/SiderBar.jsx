@@ -54,6 +54,7 @@ const routerMap = {
   agentTopups: '/console/agent/topups',
   agentRebates: '/console/agent/rebates',
   adminAgentOverview: '/console/admin/agents',
+  adminTopupOverview: '/console/admin/topups',
 };
 
 const SiderBar = ({ onNavigate = () => {} }) => {
@@ -207,6 +208,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('代理总览'),
         itemKey: 'adminAgentOverview',
         to: '/console/admin/agents',
+        className: isAdmin() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('充值统计'),
+        itemKey: 'adminTopupOverview',
+        to: '/console/admin/topups',
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {
