@@ -87,7 +87,7 @@ const EditUserModal = (props) => {
     quota: 0,
     group: 'default',
     remark: '',
-    rebate_rate_percent: 0,
+    rebate_rate_percent: 5,
   });
 
   const fetchGroups = async () => {
