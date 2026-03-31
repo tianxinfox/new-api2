@@ -298,6 +298,49 @@ func TestApplyParamOverridePrependAppendString(t *testing.T) {
 	assertJSONEqual(t, `{"model":"openai/gpt-4-latest"}`, string(out))
 }
 
+func TestApplyParamOverrideAppendFromString(t *testing.T) {
+	input := []byte(`{"model":"nano-banana","prompt":"A cute baby sea otter","size":"1024x1024"}`)
+	override := map[string]interface{}{
+		"operations": []interface{}{
+			map[string]interface{}{
+				"path":  "prompt",
+				"mode":  "append_from",
+				"from":  "size",
+				"value": ",",
+			},
+			map[string]interface{}{
+				"path": "size",
+				"mode": "delete",
+			},
+		},
+	}
+
+	out, err := ApplyParamOverride(input, override, nil)
+	if err != nil {
+		t.Fatalf("ApplyParamOverride returned error: %v", err)
+	}
+	assertJSONEqual(t, `{"model":"nano-banana","prompt":"A cute baby sea otter,1024x1024"}`, string(out))
+}
+
+func TestApplyParamOverrideAppendFromRequiresSource(t *testing.T) {
+	input := []byte(`{"prompt":"A cute baby sea otter"}`)
+	override := map[string]interface{}{
+		"operations": []interface{}{
+			map[string]interface{}{
+				"path":  "prompt",
+				"mode":  "append_from",
+				"from":  "size",
+				"value": ",",
+			},
+		},
+	}
+
+	_, err := ApplyParamOverride(input, override, nil)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+}
+
 func TestApplyParamOverridePrependAppendArray(t *testing.T) {
 	input := []byte(`{"arr":[1,2]}`)
 	override := map[string]interface{}{

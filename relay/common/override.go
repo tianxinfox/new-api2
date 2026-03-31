@@ -23,7 +23,7 @@ type ConditionOperation struct {
 
 type ParamOperation struct {
 	Path       string               `json:"path"`
-	Mode       string               `json:"mode"` // delete, set, move, copy, prepend, append, trim_prefix, trim_suffix, ensure_prefix, ensure_suffix, trim_space, to_lower, to_upper, replace, regex_replace
+	Mode       string               `json:"mode"` // delete, set, move, copy, prepend, append, prepend_from, append_from, trim_prefix, trim_suffix, ensure_prefix, ensure_suffix, trim_space, to_lower, to_upper, replace, regex_replace
 	Value      interface{}          `json:"value"`
 	KeepOrigin bool                 `json:"keep_origin"`
 	From       string               `json:"from,omitempty"`
@@ -361,6 +361,18 @@ func applyOperations(jsonStr string, operations []ParamOperation, conditionConte
 			result, err = modifyValue(result, opPath, op.Value, op.KeepOrigin, true)
 		case "append":
 			result, err = modifyValue(result, opPath, op.Value, op.KeepOrigin, false)
+		case "prepend_from":
+			if op.From == "" {
+				return "", fmt.Errorf("prepend_from requires from")
+			}
+			opFrom := processNegativeIndex(result, op.From)
+			result, err = modifyValueFrom(result, opPath, opFrom, op.Value, op.KeepOrigin, true)
+		case "append_from":
+			if op.From == "" {
+				return "", fmt.Errorf("append_from requires from")
+			}
+			opFrom := processNegativeIndex(result, op.From)
+			result, err = modifyValueFrom(result, opPath, opFrom, op.Value, op.KeepOrigin, false)
 		case "trim_prefix":
 			result, err = trimStringValue(result, opPath, op.Value, true)
 		case "trim_suffix":
@@ -422,6 +434,24 @@ func modifyValue(jsonStr, path string, value interface{}, keepOrigin, isPrepend 
 	return jsonStr, fmt.Errorf("operation not supported for type: %v", current.Type)
 }
 
+func modifyValueFrom(jsonStr, path, fromPath string, value interface{}, keepOrigin, isPrepend bool) (string, error) {
+	current := gjson.Get(jsonStr, path)
+	source := gjson.Get(jsonStr, fromPath)
+	if !source.Exists() {
+		return jsonStr, fmt.Errorf("source path does not exist: %s", fromPath)
+	}
+
+	switch {
+	case current.IsArray():
+		return modifyArrayFrom(jsonStr, path, source, isPrepend)
+	case current.Type == gjson.String:
+		return modifyStringFrom(jsonStr, path, current.String(), source, value, isPrepend)
+	case current.Type == gjson.JSON:
+		return mergeObjectsFrom(jsonStr, path, source, keepOrigin)
+	}
+	return jsonStr, fmt.Errorf("operation not supported for type: %v", current.Type)
+}
+
 func modifyArray(jsonStr, path string, value interface{}, isPrepend bool) (string, error) {
 	current := gjson.Get(jsonStr, path)
 	var newArray []interface{}
@@ -458,6 +488,54 @@ func modifyString(jsonStr, path string, value interface{}, isPrepend bool) (stri
 		newStr = valueStr + current.String()
 	} else {
 		newStr = current.String() + valueStr
+	}
+	return sjson.Set(jsonStr, path, newStr)
+}
+
+func modifyArrayFrom(jsonStr, path string, source gjson.Result, isPrepend bool) (string, error) {
+	current := gjson.Get(jsonStr, path)
+	var newArray []interface{}
+
+	addSource := func() {
+		if source.IsArray() {
+			source.ForEach(func(_, val gjson.Result) bool {
+				newArray = append(newArray, val.Value())
+				return true
+			})
+			return
+		}
+		newArray = append(newArray, source.Value())
+	}
+
+	addOriginal := func() {
+		current.ForEach(func(_, val gjson.Result) bool {
+			newArray = append(newArray, val.Value())
+			return true
+		})
+	}
+
+	if isPrepend {
+		addSource()
+		addOriginal()
+	} else {
+		addOriginal()
+		addSource()
+	}
+	return sjson.Set(jsonStr, path, newArray)
+}
+
+func modifyStringFrom(jsonStr, path, currentStr string, source gjson.Result, value interface{}, isPrepend bool) (string, error) {
+	sourceStr := source.String()
+	joiner := ""
+	if value != nil {
+		joiner = fmt.Sprintf("%v", value)
+	}
+
+	var newStr string
+	if isPrepend {
+		newStr = sourceStr + joiner + currentStr
+	} else {
+		newStr = currentStr + joiner + sourceStr
 	}
 	return sjson.Set(jsonStr, path, newStr)
 }
@@ -573,6 +651,14 @@ func mergeObjects(jsonStr, path string, value interface{}, keepOrigin bool) (str
 		}
 	}
 	return sjson.Set(jsonStr, path, result)
+}
+
+func mergeObjectsFrom(jsonStr, path string, source gjson.Result, keepOrigin bool) (string, error) {
+	var newMap map[string]interface{}
+	if err := common.Unmarshal([]byte(source.Raw), &newMap); err != nil {
+		return "", err
+	}
+	return mergeObjects(jsonStr, path, newMap, keepOrigin)
 }
 
 // BuildParamOverrideContext 提供 ApplyParamOverride 可用的上下文信息。
