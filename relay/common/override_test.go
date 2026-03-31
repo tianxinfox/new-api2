@@ -341,6 +341,164 @@ func TestApplyParamOverrideAppendFromRequiresSource(t *testing.T) {
 	}
 }
 
+func TestApplyParamOverrideSizeToRatioAndResolution(t *testing.T) {
+	input := []byte(`{"model":"jimeng-4.5","prompt":"一只小猫","size":"1024x1536"}`)
+	override := map[string]interface{}{
+		"operations": []interface{}{
+			map[string]interface{}{
+				"path": "ratio",
+				"mode": "size_to_ratio",
+				"from": "size",
+			},
+			map[string]interface{}{
+				"path": "resolution",
+				"mode": "size_to_resolution",
+				"from": "size",
+			},
+			map[string]interface{}{
+				"path": "size",
+				"mode": "delete",
+			},
+		},
+	}
+
+	out, err := ApplyParamOverride(input, override, nil)
+	if err != nil {
+		t.Fatalf("ApplyParamOverride returned error: %v", err)
+	}
+	assertJSONEqual(t, `{"model":"jimeng-4.5","prompt":"一只小猫","ratio":"2:3","resolution":"2k"}`, string(out))
+}
+
+func TestApplyParamOverrideSizeToRatioNearestStandard(t *testing.T) {
+	cases := []struct {
+		size  string
+		ratio string
+	}{
+		{size: "1168x784", ratio: "3:2"},
+		{size: "784x1168", ratio: "2:3"},
+		{size: "1280x720", ratio: "16:9"},
+		{size: "720x1280", ratio: "9:16"},
+		{size: "1024x1024", ratio: "1:1"},
+	}
+
+	for _, tc := range cases {
+		input := []byte(`{"size":"` + tc.size + `"}`)
+		override := map[string]interface{}{
+			"operations": []interface{}{
+				map[string]interface{}{
+					"path": "ratio",
+					"mode": "size_to_ratio",
+					"from": "size",
+				},
+			},
+		}
+
+		out, err := ApplyParamOverride(input, override, nil)
+		if err != nil {
+			t.Fatalf("ApplyParamOverride returned error for %s: %v", tc.size, err)
+		}
+		assertJSONEqual(t, `{"size":"`+tc.size+`","ratio":"`+tc.ratio+`"}`, string(out))
+	}
+}
+
+func TestApplyParamOverrideSizeToResolutionTiers(t *testing.T) {
+	cases := []struct {
+		size       string
+		resolution string
+	}{
+		{size: "1024x1024", resolution: "1k"},
+		{size: "1024x1536", resolution: "2k"},
+		{size: "2048x2048", resolution: "2k"},
+		{size: "2560x1440", resolution: "4k"},
+		{size: "4096x2304", resolution: "4k"},
+	}
+
+	for _, tc := range cases {
+		input := []byte(`{"size":"` + tc.size + `"}`)
+		override := map[string]interface{}{
+			"operations": []interface{}{
+				map[string]interface{}{
+					"path": "resolution",
+					"mode": "size_to_resolution",
+					"from": "size",
+				},
+			},
+		}
+
+		out, err := ApplyParamOverride(input, override, nil)
+		if err != nil {
+			t.Fatalf("ApplyParamOverride returned error for %s: %v", tc.size, err)
+		}
+		assertJSONEqual(t, `{"size":"`+tc.size+`","resolution":"`+tc.resolution+`"}`, string(out))
+	}
+}
+
+func TestApplyParamOverrideSizeToRatioInvalidSource(t *testing.T) {
+	input := []byte(`{"size":"oops"}`)
+	override := map[string]interface{}{
+		"operations": []interface{}{
+			map[string]interface{}{
+				"path": "ratio",
+				"mode": "size_to_ratio",
+				"from": "size",
+			},
+		},
+	}
+
+	_, err := ApplyParamOverride(input, override, nil)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+}
+
+func TestApplyParamOverrideSizeToRatioPreservesExistingTarget(t *testing.T) {
+	input := []byte(`{"size":"1024x1024","ratio":"9:16","resolution":"2k"}`)
+	override := map[string]interface{}{
+		"operations": []interface{}{
+			map[string]interface{}{
+				"path": "ratio",
+				"mode": "size_to_ratio",
+				"from": "size",
+			},
+			map[string]interface{}{
+				"path": "resolution",
+				"mode": "size_to_resolution",
+				"from": "size",
+			},
+		},
+	}
+
+	out, err := ApplyParamOverride(input, override, nil)
+	if err != nil {
+		t.Fatalf("ApplyParamOverride returned error: %v", err)
+	}
+	assertJSONEqual(t, `{"size":"1024x1024","ratio":"9:16","resolution":"2k"}`, string(out))
+}
+
+func TestApplyParamOverrideSizeToRatioMissingSourceNoop(t *testing.T) {
+	input := []byte(`{"ratio":"9:16","resolution":"2k"}`)
+	override := map[string]interface{}{
+		"operations": []interface{}{
+			map[string]interface{}{
+				"path": "ratio",
+				"mode": "size_to_ratio",
+				"from": "size",
+			},
+			map[string]interface{}{
+				"path": "resolution",
+				"mode": "size_to_resolution",
+				"from": "size",
+			},
+		},
+	}
+
+	out, err := ApplyParamOverride(input, override, nil)
+	if err != nil {
+		t.Fatalf("ApplyParamOverride returned error: %v", err)
+	}
+	assertJSONEqual(t, `{"ratio":"9:16","resolution":"2k"}`, string(out))
+}
+
 func TestApplyParamOverridePrependAppendArray(t *testing.T) {
 	input := []byte(`{"arr":[1,2]}`)
 	override := map[string]interface{}{
@@ -594,6 +752,26 @@ func TestApplyParamOverrideRegexReplaceInvalidPattern(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
+}
+
+func TestApplyParamOverrideRegexReplaceMissingPathNoop(t *testing.T) {
+	input := []byte(`{"created":123,"data":[{"url":"https://example.com/image.png"}]}`)
+	override := map[string]interface{}{
+		"operations": []interface{}{
+			map[string]interface{}{
+				"path": "choices.0.message.content",
+				"mode": "regex_replace",
+				"from": "\\n*✅ 图片生成完成！.*$",
+				"to":   "",
+			},
+		},
+	}
+
+	out, err := ApplyParamOverride(input, override, nil)
+	if err != nil {
+		t.Fatalf("ApplyParamOverride returned error: %v", err)
+	}
+	assertJSONEqual(t, `{"created":123,"data":[{"url":"https://example.com/image.png"}]}`, string(out))
 }
 
 func TestApplyParamOverrideCopy(t *testing.T) {

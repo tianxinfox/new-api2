@@ -21,6 +21,7 @@ import (
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/sjson"
 )
 
 func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.NewAPIError) {
@@ -46,6 +47,17 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		return types.NewError(fmt.Errorf("invalid api type: %d", info.ApiType), types.ErrorCodeInvalidApiType, types.ErrOptionWithSkipRetry())
 	}
 	adaptor.Init(info)
+
+	if common.DebugEnabled {
+		if storage, storageErr := common.GetBodyStorage(c); storageErr == nil {
+			contentType := strings.ToLower(c.Request.Header.Get("Content-Type"))
+			if strings.Contains(contentType, "application/json") || strings.Contains(contentType, "+json") {
+				if rawBody, bodyErr := storage.Bytes(); bodyErr == nil {
+					logger.LogDebug(c, fmt.Sprintf("image incoming raw body: %s", string(rawBody)))
+				}
+			}
+		}
+	}
 
 	var requestBody io.Reader
 
@@ -82,6 +94,9 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 					return types.NewError(err, types.ErrorCodeChannelParamOverrideInvalid, types.ErrOptionWithSkipRetry())
 				}
 			}
+			if common.DebugEnabled {
+				logger.LogDebug(c, fmt.Sprintf("image final upstream body: %s", string(rawBody)))
+			}
 			requestBody = bytes.NewBuffer(rawBody)
 		} else {
 			requestBody = common.ReaderOnly(storage)
@@ -101,6 +116,10 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 			if err != nil {
 				return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 			}
+			jsonData, err = mergeImageRequestExtraFields(jsonData, request)
+			if err != nil {
+				return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+			}
 
 			// apply param override
 			if len(info.ParamOverride) > 0 {
@@ -112,6 +131,7 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 
 			if common.DebugEnabled {
 				logger.LogDebug(c, fmt.Sprintf("image request body: %s", string(jsonData)))
+				logger.LogDebug(c, fmt.Sprintf("image final upstream body: %s", string(jsonData)))
 			}
 			requestBody = bytes.NewBuffer(jsonData)
 		}
@@ -173,6 +193,32 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 
 	postConsumeQuota(c, info, usage.(*dto.Usage), logContent...)
 	return nil
+}
+
+func mergeImageRequestExtraFields(jsonData []byte, request *dto.ImageRequest) ([]byte, error) {
+	if request == nil || len(request.Extra) == 0 {
+		return jsonData, nil
+	}
+
+	result := string(jsonData)
+	keys := make([]string, 0, len(request.Extra))
+	for key := range request.Extra {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		raw := request.Extra[key]
+		if len(raw) == 0 {
+			continue
+		}
+		var err error
+		result, err = sjson.SetRaw(result, key, string(raw))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return []byte(result), nil
 }
 
 func isChatCompletionsRequestPath(requestURLPath string) bool {

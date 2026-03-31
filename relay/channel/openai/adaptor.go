@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -436,8 +437,6 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		var requestBody bytes.Buffer
 		writer := multipart.NewWriter(&requestBody)
 
-		writer.WriteField("model", request.Model)
-		// 使用已解析的 multipart 表单，避免重复解析
 		mf := c.Request.MultipartForm
 		if mf == nil {
 			if _, err := c.MultipartForm(); err != nil {
@@ -446,14 +445,14 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 			mf = c.Request.MultipartForm
 		}
 
-		// 写入所有非文件字段
-		if mf != nil {
-			for key, values := range mf.Value {
-				if key == "model" {
-					continue
-				}
-				for _, value := range values {
-					writer.WriteField(key, value)
+		fieldValues, err := buildImageEditFormFieldValues(request, mf, info)
+		if err != nil {
+			return nil, err
+		}
+		for _, key := range sortedFormFieldKeys(fieldValues) {
+			for _, value := range fieldValues[key] {
+				if err = writer.WriteField(key, value); err != nil {
+					return nil, fmt.Errorf("write form field %s failed: %w", key, err)
 				}
 			}
 		}
@@ -555,6 +554,86 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 	default:
 		return request, nil
 	}
+}
+
+func buildImageEditFormFieldValues(request dto.ImageRequest, mf *multipart.Form, info *relaycommon.RelayInfo) (map[string][]string, error) {
+	values := map[string][]string{
+		"model": {request.Model},
+	}
+	if mf != nil {
+		for key, formValues := range mf.Value {
+			if key == "model" {
+				continue
+			}
+			copied := append([]string(nil), formValues...)
+			values[key] = copied
+		}
+	}
+	if len(info.ParamOverride) == 0 {
+		return values, nil
+	}
+
+	jsonData, err := common.Marshal(flattenFormFieldValues(values))
+	if err != nil {
+		return nil, fmt.Errorf("marshal image edit form values failed: %w", err)
+	}
+	jsonData, err = relaycommon.ApplyParamOverride(jsonData, info.ParamOverride, relaycommon.BuildParamOverrideContext(info))
+	if err != nil {
+		return nil, err
+	}
+
+	var overridden map[string]interface{}
+	if err = common.Unmarshal(jsonData, &overridden); err != nil {
+		return nil, fmt.Errorf("unmarshal overridden image edit form values failed: %w", err)
+	}
+	return expandFormFieldValues(overridden), nil
+}
+
+func flattenFormFieldValues(values map[string][]string) map[string]interface{} {
+	flat := make(map[string]interface{}, len(values))
+	for key, items := range values {
+		switch len(items) {
+		case 0:
+			flat[key] = ""
+		case 1:
+			flat[key] = items[0]
+		default:
+			arr := make([]interface{}, 0, len(items))
+			for _, item := range items {
+				arr = append(arr, item)
+			}
+			flat[key] = arr
+		}
+	}
+	return flat
+}
+
+func expandFormFieldValues(values map[string]interface{}) map[string][]string {
+	expanded := make(map[string][]string, len(values))
+	for key, value := range values {
+		switch typed := value.(type) {
+		case []interface{}:
+			items := make([]string, 0, len(typed))
+			for _, item := range typed {
+				items = append(items, fmt.Sprintf("%v", item))
+			}
+			expanded[key] = items
+		case nil:
+			continue
+		default:
+			expanded[key] = []string{fmt.Sprintf("%v", typed)}
+		}
+	}
+	return expanded
+}
+
+func sortedFormFieldKeys(values map[string][]string) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // detectImageMimeType determines the MIME type based on the file extension

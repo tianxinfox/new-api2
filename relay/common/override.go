@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,6 +14,19 @@ import (
 
 var negativeIndexRegexp = regexp.MustCompile(`\.(-\d+)`)
 
+var standardImageAspectRatios = []struct {
+	Label string
+	Value float64
+}{
+	{Label: "1:1", Value: 1.0},
+	{Label: "16:9", Value: 16.0 / 9.0},
+	{Label: "9:16", Value: 9.0 / 16.0},
+	{Label: "4:3", Value: 4.0 / 3.0},
+	{Label: "3:4", Value: 3.0 / 4.0},
+	{Label: "3:2", Value: 3.0 / 2.0},
+	{Label: "2:3", Value: 2.0 / 3.0},
+}
+
 type ConditionOperation struct {
 	Path           string      `json:"path"`             // JSON路径
 	Mode           string      `json:"mode"`             // full, prefix, suffix, contains, gt, gte, lt, lte
@@ -23,7 +37,7 @@ type ConditionOperation struct {
 
 type ParamOperation struct {
 	Path       string               `json:"path"`
-	Mode       string               `json:"mode"` // delete, set, move, copy, prepend, append, prepend_from, append_from, trim_prefix, trim_suffix, ensure_prefix, ensure_suffix, trim_space, to_lower, to_upper, replace, regex_replace
+	Mode       string               `json:"mode"` // delete, set, move, copy, prepend, append, prepend_from, append_from, size_to_ratio, size_to_resolution, trim_prefix, trim_suffix, ensure_prefix, ensure_suffix, trim_space, to_lower, to_upper, replace, regex_replace
 	Value      interface{}          `json:"value"`
 	KeepOrigin bool                 `json:"keep_origin"`
 	From       string               `json:"from,omitempty"`
@@ -373,6 +387,18 @@ func applyOperations(jsonStr string, operations []ParamOperation, conditionConte
 			}
 			opFrom := processNegativeIndex(result, op.From)
 			result, err = modifyValueFrom(result, opPath, opFrom, op.Value, op.KeepOrigin, false)
+		case "size_to_ratio":
+			if op.From == "" {
+				return "", fmt.Errorf("size_to_ratio requires from")
+			}
+			opFrom := processNegativeIndex(result, op.From)
+			result, err = setDerivedImageSizeValue(result, opPath, opFrom, op.KeepOrigin, deriveImageAspectRatio)
+		case "size_to_resolution":
+			if op.From == "" {
+				return "", fmt.Errorf("size_to_resolution requires from")
+			}
+			opFrom := processNegativeIndex(result, op.From)
+			result, err = setDerivedImageSizeValue(result, opPath, opFrom, op.KeepOrigin, deriveImageResolution)
 		case "trim_prefix":
 			result, err = trimStringValue(result, opPath, op.Value, true)
 		case "trim_suffix":
@@ -609,6 +635,9 @@ func replaceStringValue(jsonStr, path, from, to string) (string, error) {
 
 func regexReplaceStringValue(jsonStr, path, pattern, replacement string) (string, error) {
 	current := gjson.Get(jsonStr, path)
+	if !current.Exists() {
+		return jsonStr, nil
+	}
 	if current.Type != gjson.String {
 		return jsonStr, fmt.Errorf("operation not supported for type: %v", current.Type)
 	}
@@ -659,6 +688,88 @@ func mergeObjectsFrom(jsonStr, path string, source gjson.Result, keepOrigin bool
 		return "", err
 	}
 	return mergeObjects(jsonStr, path, newMap, keepOrigin)
+}
+
+func setDerivedImageSizeValue(jsonStr, targetPath, fromPath string, keepOrigin bool, derive func(string) (string, error)) (string, error) {
+	target := gjson.Get(jsonStr, targetPath)
+	if target.Exists() {
+		return jsonStr, nil
+	}
+
+	source := gjson.Get(jsonStr, fromPath)
+	if !source.Exists() {
+		return jsonStr, nil
+	}
+	if source.Type != gjson.String {
+		return jsonStr, fmt.Errorf("image size source must be string, got %v", source.Type)
+	}
+
+	derived, err := derive(source.String())
+	if err != nil {
+		return jsonStr, err
+	}
+	return sjson.Set(jsonStr, targetPath, derived)
+}
+
+func deriveImageAspectRatio(size string) (string, error) {
+	width, height, err := parseImageSize(size)
+	if err != nil {
+		return "", err
+	}
+	return nearestStandardImageAspectRatio(float64(width) / float64(height)), nil
+}
+
+func deriveImageResolution(size string) (string, error) {
+	width, height, err := parseImageSize(size)
+	if err != nil {
+		return "", err
+	}
+	maxSide := width
+	if height > maxSide {
+		maxSide = height
+	}
+
+	switch {
+	case maxSide <= 1024:
+		return "1k", nil
+	case maxSide <= 2048:
+		return "2k", nil
+	default:
+		return "4k", nil
+	}
+}
+
+func parseImageSize(size string) (int, int, error) {
+	normalized := strings.TrimSpace(strings.ToLower(size))
+	normalized = strings.ReplaceAll(normalized, "×", "x")
+	parts := strings.Split(normalized, "x")
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("invalid image size: %s", size)
+	}
+
+	width, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if err != nil || width <= 0 {
+		return 0, 0, fmt.Errorf("invalid image size width: %s", size)
+	}
+	height, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err != nil || height <= 0 {
+		return 0, 0, fmt.Errorf("invalid image size height: %s", size)
+	}
+	return width, height, nil
+}
+
+func nearestStandardImageAspectRatio(ratio float64) string {
+	bestLabel := standardImageAspectRatios[0].Label
+	bestDiff := math.Abs(ratio - standardImageAspectRatios[0].Value)
+
+	for _, candidate := range standardImageAspectRatios[1:] {
+		diff := math.Abs(ratio - candidate.Value)
+		if diff < bestDiff {
+			bestDiff = diff
+			bestLabel = candidate.Label
+		}
+	}
+	return bestLabel
 }
 
 // BuildParamOverrideContext 提供 ApplyParamOverride 可用的上下文信息。

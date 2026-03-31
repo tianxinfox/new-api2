@@ -1,10 +1,12 @@
 package relay
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/dto"
 )
 
 func TestTransformImageToChatCompletionsBody(t *testing.T) {
@@ -128,5 +130,38 @@ func TestTransformImageToChatCompletionsBody_GenerationsRatio(t *testing.T) {
 	text := content[0].(map[string]interface{})["text"].(string)
 	if !strings.Contains(text, "一只可爱的小猫咪") || !strings.Contains(text, "16:9") || !strings.Contains(text, "4k") {
 		t.Fatalf("unexpected text: %q", text)
+	}
+}
+
+func TestMergeImageRequestExtraFields(t *testing.T) {
+	request := &dto.ImageRequest{
+		Model:  "jimeng-4.5",
+		Prompt: "一个可爱的亚洲美女",
+		Extra: map[string]json.RawMessage{
+			"ratio":      json.RawMessage(`"9:16"`),
+			"resolution": json.RawMessage(`"2k"`),
+		},
+	}
+
+	base, err := common.Marshal(request)
+	if err != nil {
+		t.Fatalf("marshal request failed: %v", err)
+	}
+
+	merged, err := mergeImageRequestExtraFields(base, request)
+	if err != nil {
+		t.Fatalf("merge extra fields failed: %v", err)
+	}
+
+	var body map[string]interface{}
+	if err = common.Unmarshal(merged, &body); err != nil {
+		t.Fatalf("unmarshal merged failed: %v", err)
+	}
+
+	if body["ratio"] != "9:16" {
+		t.Fatalf("unexpected ratio: %v", body["ratio"])
+	}
+	if body["resolution"] != "2k" {
+		t.Fatalf("unexpected resolution: %v", body["resolution"])
 	}
 }
