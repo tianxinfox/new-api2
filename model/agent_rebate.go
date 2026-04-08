@@ -165,12 +165,9 @@ func settleAgentRebateBySource(sourceType string, sourceId int, subUserId int, t
 			return err
 		}
 
-		return tx.Model(&User{}).
-			Where("id = ?", agent.Id).
-			Updates(map[string]interface{}{
-				"aff_quota":   gorm.Expr("aff_quota + ?", rebateQuota),
-				"aff_history": gorm.Expr("aff_history + ?", rebateQuota),
-			}).Error
+		// Keep agent recharge rebates in the dedicated rebate ledger only.
+		// Registration invite rewards continue to use aff_quota/aff_history.
+		return nil
 	})
 }
 
