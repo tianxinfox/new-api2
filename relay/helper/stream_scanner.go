@@ -22,9 +22,10 @@ import (
 )
 
 const (
-	InitialScannerBufferSize    = 64 << 10 // 64KB (64*1024)
-	DefaultMaxScannerBufferSize = 64 << 20 // 64MB (64*1024*1024) default SSE buffer size
-	DefaultPingInterval         = 10 * time.Second
+	InitialScannerBufferSize       = 64 << 10 // 64KB (64*1024)
+	DefaultMaxScannerBufferSize    = 64 << 20 // 64MB (64*1024*1024) default SSE buffer size
+	DefaultPingInterval            = 10 * time.Second
+	DefaultDrainOnDisconnectTimeout = 30 * time.Second
 )
 
 func getScannerBufferSize() int {
@@ -34,10 +35,36 @@ func getScannerBufferSize() int {
 	return DefaultMaxScannerBufferSize
 }
 
-func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo, dataHandler func(data string) bool) {
+type streamScannerOptions struct {
+	drainOnDisconnect        bool
+	drainOnDisconnectTimeout time.Duration
+}
+
+type StreamScannerOption func(*streamScannerOptions)
+
+// WithDrainOnDisconnect makes the scanner continue reading upstream data
+// after the client disconnects (with a timeout) instead of stopping immediately.
+// This is needed for Responses API streams where the usage/billing info
+// arrives in the final response.completed event.
+func WithDrainOnDisconnect(timeout time.Duration) StreamScannerOption {
+	return func(o *streamScannerOptions) {
+		o.drainOnDisconnect = true
+		o.drainOnDisconnectTimeout = timeout
+		if o.drainOnDisconnectTimeout <= 0 {
+			o.drainOnDisconnectTimeout = DefaultDrainOnDisconnectTimeout
+		}
+	}
+}
+
+func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo, dataHandler func(data string) bool, opts ...StreamScannerOption) {
 
 	if resp == nil || dataHandler == nil {
 		return
+	}
+
+	var options streamScannerOptions
+	for _, opt := range opts {
+		opt(&options)
 	}
 
 	// 确保响应体总是被关闭
@@ -86,6 +113,13 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		ticker.Stop()
 		if pingTicker != nil {
 			pingTicker.Stop()
+		}
+
+		// 先关闭 resp.Body，使 scanner.Scan() 立即因 read error 返回，
+		// 避免 wg.Wait() 卡在等待 scanner goroutine 上。
+		if resp.Body != nil {
+			resp.Body.Close()
+			resp.Body = nil
 		}
 
 		// 等待所有 goroutine 退出，最多等待5秒
@@ -219,9 +253,14 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 				return
 			case <-ctx.Done():
 				return
-			case <-c.Request.Context().Done():
-				return
 			default:
+			}
+			if !options.drainOnDisconnect {
+				select {
+				case <-c.Request.Context().Done():
+					return
+				default:
+				}
 			}
 
 			ticker.Reset(streamingTimeout)
@@ -271,13 +310,36 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 	// 主循环等待完成或超时
 	select {
 	case <-ticker.C:
-		// 超时处理逻辑
 		logger.LogError(c, "streaming timeout")
 	case <-stopChan:
-		// 正常结束
 		logger.LogInfo(c, "streaming finished")
 	case <-c.Request.Context().Done():
-		// 客户端断开连接
-		logger.LogInfo(c, "client disconnected")
+		if !options.drainOnDisconnect {
+			logger.LogInfo(c, "client disconnected")
+			break
+		}
+		// 客户端断开，继续 drain 上游以获取计费信息（如 response.completed）
+		logger.LogInfo(c, "client disconnected, draining upstream for usage data")
+		drainTimer := time.NewTimer(options.drainOnDisconnectTimeout)
+		defer drainTimer.Stop()
+		select {
+		case <-stopChan:
+			logger.LogInfo(c, "streaming finished (after client disconnect)")
+		case <-ticker.C:
+			logger.LogError(c, "streaming timeout while draining")
+		case <-drainTimer.C:
+			// drain 超时，先关 resp.Body 硬打断 scanner.Scan()
+			logger.LogInfo(c, "drain timeout, closing upstream connection")
+			if resp.Body != nil {
+				resp.Body.Close()
+				resp.Body = nil
+			}
+			// 等 scanner goroutine 退出
+			select {
+			case <-stopChan:
+			case <-time.After(5 * time.Second):
+				logger.LogError(c, "timeout waiting for scanner after drain")
+			}
+		}
 	}
 }

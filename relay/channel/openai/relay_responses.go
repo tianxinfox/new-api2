@@ -85,13 +85,18 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 
 	var usage = &dto.Usage{}
 	var responseTextBuilder strings.Builder
+	reqCtx := c.Request.Context()
 
 	helper.StreamScannerHandler(c, resp, info, func(data string) bool {
+
+		clientGone := reqCtx.Err() != nil
 
 		// 检查当前数据是否包含 completed 状态和 usage 信息
 		var streamResponse dto.ResponsesStreamResponse
 		if err := common.UnmarshalJsonStr(data, &streamResponse); err == nil {
-			sendResponsesStreamData(c, streamResponse, data)
+			if !clientGone {
+				sendResponsesStreamData(c, streamResponse, data)
+			}
 			switch streamResponse.Type {
 			case "response.completed":
 				if streamResponse.Response != nil {
@@ -116,10 +121,8 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 					}
 				}
 			case "response.output_text.delta":
-				// 处理输出文本
 				responseTextBuilder.WriteString(streamResponse.Delta)
 			case dto.ResponsesOutputTypeItemDone:
-				// 函数调用处理
 				if streamResponse.Item != nil {
 					switch streamResponse.Item.Type {
 					case dto.BuildInCallWebSearchCall:
@@ -135,7 +138,7 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 			logger.LogError(c, "failed to unmarshal stream response: "+err.Error())
 		}
 		return true
-	})
+	}, helper.WithDrainOnDisconnect(helper.DefaultDrainOnDisconnectTimeout))
 
 	if usage.CompletionTokens == 0 {
 		// 计算输出文本的 token 数量
